@@ -2,18 +2,20 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Providers } from './providers';
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 export const metadata: Metadata = {
   title: 'TC Grün-Weiß',
   description: 'Tennisverwaltung & Platzbuchung für den TC Grün-Weiß',
-  manifest: '/manifest.webmanifest',
+  manifest: `${basePath}/manifest.webmanifest`,
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'TC Grün-Weiß',
   },
   icons: {
-    icon: '/icons/icon.svg',
-    apple: '/icons/apple-touch-icon.png',
+    icon: `${basePath}/icons/icon.svg`,
+    apple: `${basePath}/icons/apple-touch-icon.png`,
   },
 };
 
@@ -39,7 +41,7 @@ try {
 
 const swInit = `
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  window.addEventListener('load', () => navigator.serviceWorker.register('${basePath}/sw.js').catch(() => {}));
 }
 `;
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/clientApi';
+
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -63,10 +65,10 @@ function ClubInner() {
 
   const load = useCallback(async () => {
     const [n, m, t, tr] = await Promise.all([
-      fetch('/api/news').then((r) => r.json()),
-      fetch('/api/members').then((r) => r.json()),
-      fetch('/api/teams').then((r) => r.json()),
-      fetch('/api/tournaments').then((r) => r.json()),
+      apiFetch('/api/news').then((r) => r.json()),
+      apiFetch('/api/members').then((r) => r.json()),
+      apiFetch('/api/teams').then((r) => r.json()),
+      apiFetch('/api/tournaments').then((r) => r.json()),
     ]);
     setNews(n.news);
     setMembers(m.members);
@@ -81,7 +83,7 @@ function ClubInner() {
   async function toggleFavorite(id: string) {
     haptic(10);
     setMembers((ms) => ms?.map((m) => (m.id === id ? { ...m, isFavorite: !m.isFavorite } : m)) ?? null);
-    await fetch('/api/members/favorites', {
+    await apiFetch('/api/members/favorites', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ memberId: id }),
@@ -90,7 +92,7 @@ function ClubInner() {
 
   async function tournamentAction(t: TournamentView) {
     haptic(12);
-    const res = await fetch('/api/tournaments', {
+    const res = await apiFetch('/api/tournaments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tournamentId: t.id, action: t.registered ? 'unregister' : 'register' }),

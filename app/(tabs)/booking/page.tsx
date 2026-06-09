@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/clientApi';
+
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -70,7 +72,7 @@ function BookingPageInner() {
   const [waitlistOffer, setWaitlistOffer] = useState<{ courtId: string; hour: number } | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/courts?date=${date}`);
+    const res = await apiFetch(`/api/courts?date=${date}`);
     const data = await res.json();
     setCourts(data.courts);
     setWeather(data.weather);
@@ -83,7 +85,7 @@ function BookingPageInner() {
   }, [load]);
 
   useEffect(() => {
-    fetch('/api/members')
+    apiFetch('/api/members')
       .then((r) => r.json())
       .then((d) => setMembers((d.members ?? []).filter((m: MemberLite) => m.id !== user?.id)));
   }, [user?.id]);
@@ -125,7 +127,7 @@ function BookingPageInner() {
     if (!sheet) return;
     setSubmitting(true);
     haptic(15);
-    const res = await fetch('/api/bookings', {
+    const res = await apiFetch('/api/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -156,7 +158,7 @@ function BookingPageInner() {
 
   async function joinWaitlist() {
     if (!waitlistOffer) return;
-    const res = await fetch('/api/waitlist', {
+    const res = await apiFetch('/api/waitlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ courtId: waitlistOffer.courtId, date, startHour: waitlistOffer.hour }),

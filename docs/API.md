@@ -1,6 +1,8 @@
 # API-Architektur
 
-REST-artige Route Handler unter `app/api/**`. Alle Endpunkte (außer Login/Wetter) erfordern eine Session (HttpOnly-Cookie `tcgw_session`). Antworten sind JSON; Fehler haben die Form `{ "error": "…" }` mit passendem HTTP-Status (401/403/404/409).
+REST-Schnittstelle der App. **In der veröffentlichten Demo (GitHub Pages, statisch)** emuliert `lib/clientApi.ts` alle Endpunkte client-seitig auf der Demo-Datenbank in `localStorage` – gleiche Pfade, gleiche Antwortformate. **In Produktion** werden dieselben Endpunkte als Next.js Route Handler bzw. Supabase-Functions implementiert; die Screens rufen weiterhin `apiFetch('/api/…')` auf, nur die Implementierung dahinter wechselt.
+
+Alle Endpunkte (außer Login/Wetter) erfordern eine Session. Antworten sind JSON; Fehler haben die Form `{ "error": "…" }` mit passendem HTTP-Status (401/403/404/409).
 
 ## Authentifizierung
 

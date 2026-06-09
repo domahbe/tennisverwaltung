@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/clientApi';
+
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -52,11 +54,11 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     const [b, w, n, t, no] = await Promise.all([
-      fetch('/api/bookings?mine=1').then((r) => r.json()),
-      fetch('/api/weather').then((r) => r.json()),
-      fetch('/api/news').then((r) => r.json()),
-      fetch('/api/teams').then((r) => r.json()),
-      fetch('/api/notifications').then((r) => r.json()),
+      apiFetch('/api/bookings?mine=1').then((r) => r.json()),
+      apiFetch('/api/weather').then((r) => r.json()),
+      apiFetch('/api/news').then((r) => r.json()),
+      apiFetch('/api/teams').then((r) => r.json()),
+      apiFetch('/api/notifications').then((r) => r.json()),
     ]);
     setBookings(b.bookings ?? []);
     setWeather(w.weather);
@@ -74,7 +76,7 @@ export default function Dashboard() {
 
   async function cancelBooking(id: string) {
     haptic([15, 30, 15]);
-    const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/bookings/${id}`, { method: 'DELETE' });
     if (res.ok) {
       toast('Buchung storniert');
       load();

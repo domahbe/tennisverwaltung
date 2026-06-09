@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/clientApi';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { PullToRefresh, Segmented, SkeletonCard } from '@/components/ui';
@@ -40,7 +42,7 @@ export default function CalendarPage() {
   const [week, setWeek] = useState<Record<string, number> | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/courts?date=${date}`);
+    const res = await apiFetch(`/api/courts?date=${date}`);
     const data = await res.json();
     setCourts(data.courts);
   }, [date]);
@@ -56,7 +58,7 @@ export default function CalendarPage() {
       const counts: Record<string, number> = {};
       await Promise.all(
         Array.from({ length: 7 }, (_, i) => isoDay(i)).map(async (d) => {
-          const r = await fetch(`/api/bookings?date=${d}`).then((x) => x.json());
+          const r = await apiFetch(`/api/bookings?date=${d}`).then((x) => x.json());
           counts[d] = (r.bookings ?? []).length;
         }),
       );

@@ -2,6 +2,17 @@
 
 Moderne, Apple-inspirierte **Progressive Web App** für Tennisvereine: Platzbuchung in 3 Klicks, Mitglieder, Mannschaften, Turniere, Gastspieler, Wetter und Adminbereich – mobile-first für iPhone & Android.
 
+## 📱 Live-Demo
+
+**https://domahbe.github.io/tennisverwaltung/**
+
+Direkt auf dem Handy in Safari/Chrome öffnen. Als App installieren:
+
+- **iPhone (Safari)**: Teilen-Button → „Zum Home-Bildschirm"
+- **Android (Chrome)**: Menü ⋮ → „App installieren"
+
+Jeder Push auf diesen Branch wird automatisch per GitHub Actions auf GitHub Pages veröffentlicht (`.github/workflows/deploy.yml`).
+
 ## Schnellstart
 
 ```bash
@@ -35,10 +46,10 @@ SF-Pro-Systemschrift, #007AFF als Primärfarbe, Frosted-Glass-Bottom-Bar, Karten
 
 ## Technik
 
-- **Frontend**: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Framer Motion
-- **Backend**: Next.js Route Handlers + In-Memory-Demo-Datenbank (`lib/store.ts`) mit Seed-Daten. Produktionsschema für **Supabase/PostgreSQL** inkl. RLS liegt in [`db/schema.sql`](db/schema.sql)
-- **Auth**: HttpOnly-Session-Cookie mit Rollen (Mitglied/Trainer/Admin); produktiv via Supabase Auth austauschbar
-- **Sicherheit**: rollenbasierte API-Zugriffe, Datensparsamkeit (Kontaktdaten nur für Admins), Audit-Log, TLS vorausgesetzt
+- **Frontend**: Next.js 14 (App Router, statischer Export), React 18, TypeScript, Tailwind CSS, Framer Motion
+- **Demo-Backend**: Die veröffentlichte Demo läuft komplett im Browser – `lib/clientApi.ts` emuliert die REST-API aus [`docs/API.md`](docs/API.md) auf der Demo-Datenbank (`lib/store.ts`) und persistiert in `localStorage` (Daten bleiben pro Gerät erhalten, Demo-Seed wird täglich aufgefrischt)
+- **Produktion**: Schema für **Supabase/PostgreSQL** inkl. Row Level Security liegt in [`db/schema.sql`](db/schema.sql); `apiFetch()` wird dann durch echte `fetch()`-Aufrufe ersetzt – die Screens bleiben unverändert
+- **Sicherheit**: rollenbasierte Zugriffe, Datensparsamkeit (Kontaktdaten nur für Admins), Audit-Log; produktiv zusätzlich TLS, RLS, EU-Hosting (DSGVO)
 
 ## Dokumentation
 

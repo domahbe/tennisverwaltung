@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/clientApi';
+
 import { useCallback, useEffect, useState } from 'react';
 import { Sheet, SkeletonCard, StatusDot } from '@/components/ui';
 import { haptic, useToast, useUser } from '../../../providers';
@@ -22,7 +24,7 @@ export default function AdminCourtsPage() {
   const [reason, setReason] = useState('Wartung');
 
   const load = useCallback(async () => {
-    const d = await fetch('/api/courts').then((r) => r.json());
+    const d = await apiFetch('/api/courts').then((r) => r.json());
     setCourts(d.courts);
   }, []);
 
@@ -34,7 +36,7 @@ export default function AdminCourtsPage() {
 
   async function setBlockedState(court: CourtView, blocked: boolean, blockReason?: string) {
     haptic(12);
-    const res = await fetch(`/api/courts/${court.id}`, {
+    const res = await apiFetch(`/api/courts/${court.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blocked, reason: blockReason }),

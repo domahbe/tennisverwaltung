@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/clientApi';
+
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -27,7 +29,7 @@ export default function AdminPage() {
   const [denied, setDenied] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch('/api/admin/stats');
+    const res = await apiFetch('/api/admin/stats');
     if (!res.ok) {
       setDenied(true);
       return;

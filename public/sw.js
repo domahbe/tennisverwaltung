@@ -1,7 +1,10 @@
-/* Service Worker: App-Shell-Caching + Offline-Fallback */
-const CACHE = 'tcgw-v1';
-const OFFLINE_URL = '/offline.html';
-const PRECACHE = [OFFLINE_URL, '/manifest.webmanifest', '/icons/icon.svg'];
+/* Service Worker: App-Shell-Caching + Offline-Fallback.
+   Alle Pfade relativ zum SW-Standort, damit es auch unter
+   einem Unterpfad (GitHub Pages: /<repo>/) funktioniert. */
+const CACHE = 'tcgw-v2';
+const BASE = new URL('./', self.location).pathname;
+const OFFLINE_URL = BASE + 'offline.html';
+const PRECACHE = [OFFLINE_URL, BASE + 'manifest.webmanifest', BASE + 'icons/icon.svg', BASE + 'icons/icon-192.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));
@@ -18,10 +21,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
-  const url = new URL(request.url);
+  if (!request.url.startsWith(self.location.origin)) return;
 
-  // API: Network-first, Cache-Fallback (Offline-Unterstützung für zuletzt geladene Daten)
-  if (url.pathname.startsWith('/api/')) {
+  // Navigation: Network-first mit Cache- und Offline-Fallback
+  if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((res) => {
@@ -29,18 +32,12 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE).then((c) => c.put(request, copy));
           return res;
         })
-        .catch(() => caches.match(request)),
+        .catch(() => caches.match(request).then((cached) => cached || caches.match(OFFLINE_URL))),
     );
     return;
   }
 
-  // Navigation: Network-first mit Offline-Seite
-  if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
-    return;
-  }
-
-  // Statisches: Stale-while-revalidate
+  // Statisches (JS/CSS/Icons): Stale-while-revalidate
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request)
@@ -61,13 +58,13 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'TC Grün-Weiß', {
       body: data.body || '',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      icon: BASE + 'icons/icon-192.png',
+      badge: BASE + 'icons/icon-192.png',
     }),
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(self.clients.openWindow('/'));
+  event.waitUntil(self.clients.openWindow(BASE));
 });

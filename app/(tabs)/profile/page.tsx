@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/clientApi';
+
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,7 +28,7 @@ export default function ProfilePage() {
   const [pushEnabled, setPushEnabled] = useState(false);
 
   const load = useCallback(async () => {
-    const d = await fetch('/api/notifications').then((r) => r.json());
+    const d = await apiFetch('/api/notifications').then((r) => r.json());
     setNotifications(d.notifications ?? []);
     setUnread(d.unread ?? 0);
   }, []);
@@ -40,7 +42,7 @@ export default function ProfilePage() {
     haptic(8);
     setShowNotifications(true);
     if (unread > 0) {
-      await fetch('/api/notifications', { method: 'POST' });
+      await apiFetch('/api/notifications', { method: 'POST' });
       setUnread(0);
     }
   }
@@ -58,7 +60,7 @@ export default function ProfilePage() {
 
   async function logout() {
     haptic([15, 30, 15]);
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await apiFetch('/api/auth/logout', { method: 'POST' });
     setUser(null);
     router.replace('/login');
   }
