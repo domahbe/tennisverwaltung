@@ -2,6 +2,22 @@ export type Role = 'member' | 'trainer' | 'admin' | 'guest';
 
 export type SkillLevel = string; // LK 1 – LK 25
 
+export interface SocialLinks {
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+  website?: string;
+}
+
+/** Was andere Mitglieder sehen dürfen (DSGVO: Opt-in pro Feld). */
+export interface PrivacySettings {
+  showEmail: boolean;
+  showPhone: boolean;
+  showSocials: boolean;
+  showStatus: boolean;
+  showPhoto: boolean;
+}
+
 export interface Member {
   id: string;
   name: string;
@@ -9,6 +25,14 @@ export interface Member {
   phone: string;
   avatarColor: string;
   initials: string;
+  /** Profilbild als Data-URL (Demo); Produktion: Supabase Storage */
+  photo?: string | null;
+  /** Kurzer Status wie bei WhatsApp, sichtbar in der Mitgliedersuche */
+  statusText?: string;
+  socials?: SocialLinks;
+  privacy?: PrivacySettings;
+  /** SHA-256-Hash (Demo); Produktion: Supabase Auth */
+  passwordHash?: string;
   skillLevel: SkillLevel;
   teamId: string | null;
   role: Role;
@@ -16,6 +40,20 @@ export interface Member {
   memberSince: string;
   favorites: string[]; // member ids
   lookingForPartner: boolean;
+}
+
+/** Offenes Spiel zur Spielpartner-Suche (Playtomic-Prinzip). */
+export interface OpenMatch {
+  id: string;
+  hostId: string;
+  type: 'einzel' | 'doppel';
+  date: string;
+  startHour: number;
+  skillRange: string; // z. B. "LK 8–14"
+  note: string;
+  playerIds: string[]; // inkl. Host
+  maxPlayers: number; // 2 bei Einzel, 4 bei Doppel
+  createdAt: string;
 }
 
 export type Surface = 'Asche' | 'Hartplatz' | 'Teppich' | 'Rasen';
@@ -128,4 +166,5 @@ export interface SessionUser {
   initials: string;
   avatarColor: string;
   skillLevel: string;
+  photo?: string | null;
 }

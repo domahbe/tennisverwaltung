@@ -51,19 +51,22 @@ export default function Dashboard() {
   const [news, setNews] = useState<{ id: string; title: string; emoji: string; category: string; date: string }[] | null>(null);
   const [nextMatch, setNextMatch] = useState<{ team: string; opponent: string; date: string; home: boolean } | null>(null);
   const [unread, setUnread] = useState(0);
+  const [openMatches, setOpenMatches] = useState(0);
 
   const load = useCallback(async () => {
-    const [b, w, n, t, no] = await Promise.all([
+    const [b, w, n, t, no, om] = await Promise.all([
       apiFetch('/api/bookings?mine=1').then((r) => r.json()),
       apiFetch('/api/weather').then((r) => r.json()),
       apiFetch('/api/news').then((r) => r.json()),
       apiFetch('/api/teams').then((r) => r.json()),
       apiFetch('/api/notifications').then((r) => r.json()),
+      apiFetch('/api/matches').then((r) => r.json()),
     ]);
     setBookings(b.bookings ?? []);
     setWeather(w.weather);
     setNews((n.news ?? []).slice(0, 3));
     setUnread(no.unread ?? 0);
+    setOpenMatches((om.matches ?? []).filter((x: any) => !x.joined && x.playerIds.length < x.maxPlayers).length);
     const myTeam = (t.teams ?? []).find((team: any) => team.players.some((p: any) => p?.id === user?.id));
     if (myTeam?.nextMatch) {
       setNextMatch({ team: myTeam.name, ...myTeam.nextMatch });
@@ -167,6 +170,25 @@ export default function Dashboard() {
                 <p className="text-[13px] text-white/80">In 3 Klicks zum freien Platz</p>
               </div>
             </div>
+            <Chevron />
+          </Link>
+        </motion.section>
+
+        {/* Spielpartner-Suche */}
+        <motion.section variants={stagger} custom={2} initial="hidden" animate="show">
+          <Link href="/matches" onClick={() => haptic(10)} className="card pressable flex items-center gap-3 p-4">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-free/15 text-xl">🤝</span>
+            <div className="flex-1">
+              <p className="text-[16px] font-bold">Spielpartner finden</p>
+              <p className="text-secondary text-[13px]">
+                {openMatches > 0 ? `${openMatches} offene${openMatches === 1 ? 's' : ''} Spiel${openMatches === 1 ? '' : 'e'} – jetzt mitspielen` : 'Offenes Einzel/Doppel erstellen & per WhatsApp teilen'}
+              </p>
+            </div>
+            {openMatches > 0 && (
+              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-free px-1.5 text-[12px] font-bold text-white">
+                {openMatches}
+              </span>
+            )}
             <Chevron />
           </Link>
         </motion.section>

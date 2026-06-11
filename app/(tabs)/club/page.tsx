@@ -5,8 +5,8 @@ import { apiFetch } from '@/lib/clientApi';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Avatar, PullToRefresh, Segmented, SkeletonCard } from '@/components/ui';
-import { NewsPost } from '@/lib/types';
+import { Avatar, PullToRefresh, Segmented, Sheet, SkeletonCard } from '@/components/ui';
+import { NewsPost, SocialLinks } from '@/lib/types';
 import { haptic, useToast, useUser } from '../../providers';
 
 interface MemberView {
@@ -14,12 +14,25 @@ interface MemberView {
   name: string;
   initials: string;
   avatarColor: string;
+  photo?: string | null;
+  statusText?: string;
+  socials?: SocialLinks;
+  email?: string | null;
+  phone?: string | null;
+  memberSince?: string;
   skillLevel: string;
   role: string;
   status: string;
   lookingForPartner: boolean;
   isFavorite: boolean;
 }
+
+const socialMeta: { key: keyof SocialLinks; label: string; emoji: string; url: (v: string) => string }[] = [
+  { key: 'instagram', label: 'Instagram', emoji: '📸', url: (v) => `https://instagram.com/${v}` },
+  { key: 'facebook', label: 'Facebook', emoji: '👤', url: (v) => `https://facebook.com/${v}` },
+  { key: 'tiktok', label: 'TikTok', emoji: '🎵', url: (v) => `https://tiktok.com/@${v}` },
+  { key: 'website', label: 'Website', emoji: '🌐', url: (v) => `https://${v}` },
+];
 
 interface TeamView {
   id: string;
@@ -62,6 +75,7 @@ function ClubInner() {
   const [tournaments, setTournaments] = useState<TournamentView[] | null>(null);
   const [search, setSearch] = useState('');
   const [memberFilter, setMemberFilter] = useState('all');
+  const [detail, setDetail] = useState<MemberView | null>(null);
 
   const load = useCallback(async () => {
     const [n, m, t, tr] = await Promise.all([
@@ -194,23 +208,36 @@ function ClubInner() {
                 {filteredMembers.map((m, i) => (
                   <div
                     key={m.id}
-                    className={`flex items-center gap-3 px-4 py-2.5 ${i < filteredMembers.length - 1 ? 'separator border-b' : ''}`}
+                    onClick={() => {
+                      haptic(8);
+                      setDetail(m);
+                    }}
+                    className={`pressable flex cursor-pointer items-center gap-3 px-4 py-2.5 ${
+                      i < filteredMembers.length - 1 ? 'separator border-b' : ''
+                    }`}
                   >
-                    <Avatar initials={m.initials} color={m.avatarColor} size={42} />
+                    <Avatar initials={m.initials} color={m.avatarColor} photo={m.photo} size={42} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[16px] font-semibold">
                         {m.name}
                         {m.id === user?.id && <span className="text-secondary font-normal"> (du)</span>}
                       </p>
-                      <p className="text-secondary text-[13px]">
+                      <p className="text-secondary truncate text-[13px]">
                         {m.skillLevel}
                         {m.role === 'trainer' && ' · Trainer'}
                         {m.role === 'admin' && ' · Vorstand'}
                         {m.lookingForPartner && ' · 🤝 sucht Spielpartner'}
                       </p>
+                      {m.statusText && <p className="truncate text-[13px] italic text-[var(--primary)]">„{m.statusText}"</p>}
                     </div>
                     {m.id !== user?.id && (
-                      <button onClick={() => toggleFavorite(m.id)} className="pressable p-1.5 text-xl">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(m.id);
+                        }}
+                        className="pressable p-1.5 text-xl"
+                      >
                         {m.isFavorite ? '⭐' : '☆'}
                       </button>
                     )}
@@ -248,7 +275,7 @@ function ClubInner() {
                   )}
                   <div className="mb-2 flex -space-x-2">
                     {t.players.map((p) => (
-                      <div key={p.id} className="rounded-full ring-2 ring-[var(--card)]">
+                      <div key={p.id} className="rounded-full ring-2 ring-[var(--card-opaque)]">
                         <Avatar initials={p.initials} color={p.avatarColor} size={32} />
                       </div>
                     ))}
@@ -299,7 +326,7 @@ function ClubInner() {
                   <div className="mb-3 flex items-center gap-2">
                     <div className="flex -space-x-2">
                       {t.participants.slice(0, 6).map((p) => (
-                        <div key={p.id} className="rounded-full ring-2 ring-[var(--card)]">
+                        <div key={p.id} className="rounded-full ring-2 ring-[var(--card-opaque)]">
                           <Avatar initials={p.initials} color={p.avatarColor} size={28} />
                         </div>
                       ))}
@@ -327,6 +354,76 @@ function ClubInner() {
             </div>
           ))}
       </div>
+
+      {/* Mitglieder-Profil (zeigt nur freigegebene Daten) */}
+      <Sheet open={detail !== null} onClose={() => setDetail(null)}>
+        {detail && (
+          <div className="space-y-4 pb-2">
+            <div className="flex flex-col items-center gap-2 pt-2">
+              <Avatar initials={detail.initials} color={detail.avatarColor} photo={detail.photo} size={88} />
+              <div className="text-center">
+                <p className="text-[22px] font-bold">{detail.name}</p>
+                <p className="text-secondary text-[14px]">
+                  {detail.skillLevel}
+                  {detail.role === 'trainer' && ' · Trainer'}
+                  {detail.role === 'admin' && ' · Vorstand'}
+                </p>
+                {detail.statusText && (
+                  <p className="mt-1 text-[15px] italic text-[var(--primary)]">„{detail.statusText}"</p>
+                )}
+              </div>
+            </div>
+
+            {detail.lookingForPartner && (
+              <div className="rounded-[14px] bg-free/12 px-4 py-3 text-center text-[14px] font-medium text-free">
+                🤝 Sucht aktuell Spielpartner
+              </div>
+            )}
+
+            {(detail.email || detail.phone) && (
+              <div className="bg-fill space-y-1.5 rounded-[14px] p-4">
+                {detail.email && (
+                  <a href={`mailto:${detail.email}`} className="block text-[15px] text-[var(--primary)]">
+                    ✉️ {detail.email}
+                  </a>
+                )}
+                {detail.phone && (
+                  <a href={`tel:${detail.phone}`} className="block text-[15px] text-[var(--primary)]">
+                    📞 {detail.phone}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {detail.socials && Object.values(detail.socials).some(Boolean) && (
+              <div>
+                <p className="text-secondary mb-1.5 px-1 text-[13px] font-semibold uppercase tracking-wide">Social Media</p>
+                <div className="flex flex-wrap gap-2">
+                  {socialMeta.map(({ key, label, emoji, url }) => {
+                    const v = detail.socials?.[key];
+                    if (!v) return null;
+                    return (
+                      <a
+                        key={key}
+                        href={url(v)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="pressable bg-fill flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[14px] font-medium"
+                      >
+                        {emoji} {label}
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <p className="text-secondary text-center text-[12px]">
+              Es werden nur Daten angezeigt, die {detail.name.split(' ')[0]} freigegeben hat.
+            </p>
+          </div>
+        )}
+      </Sheet>
     </PullToRefresh>
   );
 }

@@ -123,21 +123,11 @@ export default function CalendarPage() {
             {courts === null ? (
               <SkeletonCard lines={6} height={420} />
             ) : (
-              <div className="card overflow-hidden p-0">
-                {/* Kopfzeile mit Platznamen */}
-                <div className="separator flex border-b">
-                  <div className="w-12 shrink-0" />
-                  <div className="flex flex-1 overflow-x-auto">
-                    {courts.map((c) => (
-                      <div key={c.id} className="min-w-[88px] flex-1 px-1 py-2 text-center text-[12px] font-semibold">
-                        {c.indoor ? '🏠' : '☀️'} {c.name}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {/* Timeline */}
-                <div className="relative flex" style={{ height: (END - START) * HOUR_PX }}>
-                  <div className="relative w-12 shrink-0">
+              <div className="card flex overflow-hidden p-0">
+                {/* Feste Zeitspalte links */}
+                <div className="w-12 shrink-0">
+                  <div className="separator h-9 border-b" />
+                  <div className="relative" style={{ height: (END - START) * HOUR_PX }}>
                     {Array.from({ length: END - START }, (_, i) => (
                       <span
                         key={i}
@@ -148,56 +138,74 @@ export default function CalendarPage() {
                       </span>
                     ))}
                   </div>
-                  <div className="relative flex flex-1 overflow-x-auto">
-                    {/* Stundenlinien */}
-                    {Array.from({ length: END - START }, (_, i) => (
-                      <div
-                        key={i}
-                        className="separator pointer-events-none absolute inset-x-0 border-t"
-                        style={{ top: i * HOUR_PX }}
-                      />
-                    ))}
-                    {courts.map((c) => (
-                      <div key={c.id} className="separator relative min-w-[88px] flex-1 border-l">
-                        {c.blocked && (
-                          <div className="absolute inset-0 bg-fill opacity-60">
-                            <p className="text-secondary mt-8 rotate-0 text-center text-[11px] font-medium">🚧 Gesperrt</p>
-                          </div>
-                        )}
-                        {c.bookings.map((b) => {
-                          const st = typeStyle[b.type] ?? typeStyle.einzel;
-                          const mine = b.memberId === user?.id || b.players.includes(user?.id ?? '');
-                          return (
-                            <motion.div
-                              key={b.id}
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              className="absolute inset-x-0.5 overflow-hidden rounded-[8px] px-1.5 py-1"
-                              style={{
-                                top: (b.startHour - START) * HOUR_PX + 1,
-                                height: b.durationHours * HOUR_PX - 3,
-                                background: mine ? st.bg : `${st.bg}26`,
-                                color: mine ? '#fff' : st.bg,
-                              }}
-                            >
-                              <p className="truncate text-[10px] font-bold leading-tight">{b.title ?? st.label}</p>
-                              <p className="truncate text-[9px] opacity-80">
-                                {`${Math.floor(b.startHour)}:${b.startHour % 1 ? '30' : '00'}`} · {b.durationHours} h
-                              </p>
-                            </motion.div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                    {/* Jetzt-Linie */}
-                    {nowOffset !== null && (
-                      <div className="pointer-events-none absolute inset-x-0 z-10" style={{ top: nowOffset }}>
-                        <div className="flex items-center">
-                          <span className="-ml-1 h-2 w-2 rounded-full bg-busy" />
-                          <div className="h-px flex-1 bg-busy" />
+                </div>
+
+                {/* EIN gemeinsamer Scroll-Container: Platznamen scrollen mit ihren
+                    Spalten, damit Sperrungen/Buchungen immer unter dem richtigen
+                    Platz stehen */}
+                <div className="flex-1 overflow-x-auto">
+                  <div style={{ minWidth: courts.length * 88 }}>
+                    <div className="separator flex border-b">
+                      {courts.map((c) => (
+                        <div
+                          key={c.id}
+                          className="flex h-9 min-w-[88px] flex-1 items-center justify-center truncate px-1 text-[12px] font-semibold"
+                        >
+                          {c.indoor ? '🏠' : '☀️'} {c.name}
                         </div>
-                      </div>
-                    )}
+                      ))}
+                    </div>
+                    <div className="relative flex" style={{ height: (END - START) * HOUR_PX }}>
+                      {/* Stundenlinien (innerhalb des gescrollten Inhalts → volle Breite) */}
+                      {Array.from({ length: END - START }, (_, i) => (
+                        <div
+                          key={i}
+                          className="separator pointer-events-none absolute inset-x-0 border-t"
+                          style={{ top: i * HOUR_PX }}
+                        />
+                      ))}
+                      {courts.map((c) => (
+                        <div key={c.id} className="separator relative min-w-[88px] flex-1 border-l">
+                          {c.blocked && (
+                            <div className="absolute inset-0 bg-fill opacity-60">
+                              <p className="text-secondary mt-8 text-center text-[11px] font-medium">🚧 Gesperrt</p>
+                            </div>
+                          )}
+                          {c.bookings.map((b) => {
+                            const st = typeStyle[b.type] ?? typeStyle.einzel;
+                            const mine = b.memberId === user?.id || b.players.includes(user?.id ?? '');
+                            return (
+                              <motion.div
+                                key={b.id}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="absolute inset-x-0.5 overflow-hidden rounded-[8px] px-1.5 py-1"
+                                style={{
+                                  top: (b.startHour - START) * HOUR_PX + 1,
+                                  height: b.durationHours * HOUR_PX - 3,
+                                  background: mine ? st.bg : `${st.bg}26`,
+                                  color: mine ? '#fff' : st.bg,
+                                }}
+                              >
+                                <p className="truncate text-[10px] font-bold leading-tight">{b.title ?? st.label}</p>
+                                <p className="truncate text-[9px] opacity-80">
+                                  {`${Math.floor(b.startHour)}:${b.startHour % 1 ? '30' : '00'}`} · {b.durationHours} h
+                                </p>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                      {/* Jetzt-Linie */}
+                      {nowOffset !== null && (
+                        <div className="pointer-events-none absolute inset-x-0 z-10" style={{ top: nowOffset }}>
+                          <div className="flex items-center">
+                            <span className="-ml-1 h-2 w-2 rounded-full bg-busy" />
+                            <div className="h-px flex-1 bg-busy" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

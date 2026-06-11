@@ -4,7 +4,11 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { haptic } from '@/app/providers';
 
-/* ---------- Segmented Control (Apple-Stil) ---------- */
+/* ---------- Segmented Control (Apple-Stil) ----------
+   Thumb bewusst ohne layoutId/Layout-Projektion animiert: layoutId-Elemente
+   in schließenden Sheets blockierten AnimatePresence-Exits (unsichtbares
+   Overlay blieb stehen → Buttons wirkten tot). Eine reine Transform-
+   Animation hat dieses Problem nicht. */
 export function Segmented({
   options,
   value,
@@ -14,8 +18,17 @@ export function Segmented({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const index = Math.max(0, options.findIndex((o) => o.value === value));
   return (
-    <div className="bg-fill flex rounded-[10px] p-0.5">
+    <div className="bg-fill relative flex rounded-[10px] p-0.5">
+      <motion.span
+        aria-hidden
+        className="absolute bottom-0.5 top-0.5 rounded-[8px] bg-[var(--card-opaque)] shadow-sm"
+        style={{ width: `calc((100% - 4px) / ${options.length})` }}
+        initial={false}
+        animate={{ x: `${index * 100}%` }}
+        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+      />
       {options.map((o) => (
         <button
           key={o.value}
@@ -23,16 +36,9 @@ export function Segmented({
             haptic();
             onChange(o.value);
           }}
-          className="relative flex-1 rounded-[8px] px-2 py-1.5 text-[13px] font-medium"
+          className="relative z-10 flex-1 rounded-[8px] px-2 py-1.5 text-[13px] font-medium"
         >
-          {value === o.value && (
-            <motion.span
-              layoutId="seg-thumb"
-              className="absolute inset-0 rounded-[8px] bg-[var(--card)] shadow-sm"
-              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-            />
-          )}
-          <span className={`relative z-10 ${value === o.value ? '' : 'text-secondary'}`}>{o.label}</span>
+          <span className={value === o.value ? '' : 'text-secondary'}>{o.label}</span>
         </button>
       ))}
     </div>
@@ -62,49 +68,65 @@ export function Sheet({
   return (
     <AnimatePresence>
       {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
-          />
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-            drag="y"
-            dragConstraints={{ top: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 120 || info.velocity.y > 600) onClose();
-            }}
-            className="card fixed inset-x-0 bottom-0 z-50 max-h-[88dvh] overflow-hidden rounded-b-none rounded-t-sheet pb-[env(safe-area-inset-bottom)]"
-          >
-            <div className="flex justify-center pb-1 pt-2.5">
-              <div className="bg-fill h-1 w-10 rounded-full" />
-            </div>
-            {title && <h2 className="px-5 pb-2 pt-1 text-[20px] font-bold">{title}</h2>}
-            <div className="max-h-[76dvh] overflow-y-auto px-5 pb-6">{children}</div>
-          </motion.div>
-        </>
+        <motion.div
+          key="sheet-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
+        />
+      )}
+      {open && (
+        <motion.div
+          key="sheet-panel"
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+          drag="y"
+          dragConstraints={{ top: 0 }}
+          dragElastic={{ top: 0, bottom: 0.6 }}
+          onDragEnd={(_, info) => {
+            if (info.offset.y > 120 || info.velocity.y > 600) onClose();
+          }}
+          className="card fixed inset-x-0 bottom-0 z-50 max-h-[88dvh] overflow-hidden rounded-b-none rounded-t-sheet pb-[env(safe-area-inset-bottom)]"
+        >
+          <div className="flex justify-center pb-1 pt-2.5">
+            <div className="bg-fill h-1 w-10 rounded-full" />
+          </div>
+          {title && <h2 className="px-5 pb-2 pt-1 text-[20px] font-bold">{title}</h2>}
+          <div className="max-h-[76dvh] overflow-y-auto px-5 pb-6">{children}</div>
+        </motion.div>
       )}
     </AnimatePresence>
   );
 }
 
-/* ---------- Avatar ---------- */
+/* ---------- Avatar (Foto oder Initialen) ---------- */
 export function Avatar({
   initials,
   color,
   size = 40,
+  photo,
 }: {
   initials: string;
   color: string;
   size?: number;
+  photo?: string | null;
 }) {
+  if (photo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photo}
+        alt={initials}
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   return (
     <div
       className="flex shrink-0 items-center justify-center rounded-full font-semibold text-white"

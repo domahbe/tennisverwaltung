@@ -1,8 +1,8 @@
 'use client';
 
 import { bookingsFor, overlaps, slotStatus, validateBooking } from './booking';
-import { audit, db, notify, uid, weatherFor } from './store';
-import { Booking, SessionUser } from './types';
+import { DEFAULT_PRIVACY, audit, db, notify, uid, weatherFor } from './store';
+import { Booking, Member, OpenMatch, SessionUser } from './types';
 
 /**
  * Client-seitige API für den statischen Betrieb (GitHub Pages, PWA offline).
@@ -12,7 +12,7 @@ import { Booking, SessionUser } from './types';
  * echte fetch()-Aufrufe gegen Supabase/PostgreSQL ersetzt.
  */
 
-const DB_KEY = 'tcgw_db_v2';
+const DB_KEY = 'tcgw_db_v3';
 const SESSION_KEY = 'tcgw_session';
 
 let hydrated = false;
@@ -21,21 +21,50 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Fehlende Felder älterer/gespeicherter Mitglieder mit Defaults auffüllen. */
+function normalizeMember(m: Member): Member {
+  return {
+    ...m,
+    photo: m.photo ?? null,
+    statusText: m.statusText ?? '',
+    socials: m.socials ?? {},
+    privacy: { ...DEFAULT_PRIVACY, ...(m.privacy ?? {}) },
+    favorites: m.favorites ?? [],
+  };
+}
+
 function hydrate() {
   if (hydrated || typeof window === 'undefined') return;
   hydrated = true;
+  let carryOverMembers: Member[] | null = null;
   try {
     const raw = localStorage.getItem(DB_KEY);
     if (raw) {
       const { day, data } = JSON.parse(raw);
-      // Demo-Daten hängen am aktuellen Datum → täglich frisch seeden
-      if (day === todayIso() && data?.members?.length) {
-        (globalThis as unknown as { __tennisDb?: unknown }).__tennisDb = data;
-        return;
+      if (data?.members?.length) {
+        // Demo-Daten hängen am aktuellen Datum → täglich frisch seeden,
+        // aber Konten/Profile (Registrierungen, Fotos, Socials) bleiben erhalten
+        if (day === todayIso()) {
+          data.members = data.members.map(normalizeMember);
+          data.matches = data.matches ?? [];
+          (globalThis as unknown as { __tennisDb?: unknown }).__tennisDb = data;
+          return;
+        }
+        carryOverMembers = data.members.map(normalizeMember);
       }
     }
   } catch {}
-  db(); // seeden
+  const fresh = db(); // seeden
+  if (carryOverMembers) {
+    const seededIds = new Set(fresh.members.map((m) => m.id));
+    for (const stored of carryOverMembers) {
+      const idx = fresh.members.findIndex((m) => m.id === stored.id);
+      if (idx >= 0) fresh.members[idx] = stored; // Profil-Änderungen übernehmen
+      else if (!seededIds.has(stored.id)) fresh.members.push(stored); // registrierte Konten behalten
+    }
+  } else {
+    fresh.members = fresh.members.map(normalizeMember);
+  }
   persist();
 }
 
@@ -52,7 +81,57 @@ function sessionUser(): SessionUser | null {
   if (!id) return null;
   const m = db().members.find((x) => x.id === id);
   if (!m) return null;
-  return { id: m.id, name: m.name, role: m.role, initials: m.initials, avatarColor: m.avatarColor, skillLevel: m.skillLevel };
+  return {
+    id: m.id,
+    name: m.name,
+    role: m.role,
+    initials: m.initials,
+    avatarColor: m.avatarColor,
+    skillLevel: m.skillLevel,
+    photo: m.photo ?? null,
+  };
+}
+
+async function sha256(text: string): Promise<string> {
+  const data = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function initialsOf(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .slice(0, 2)
+    .join('');
+}
+
+const AVATAR_COLORS = ['#FF9500', '#34C759', '#AF52DE', '#FF3B30', '#5856D6', '#007AFF', '#FF2D55', '#00C7BE'];
+
+/** Öffentliches Mitglieder-Profil unter Beachtung der Privacy-Einstellungen. */
+function publicMember(m: Member, viewerRole: string) {
+  const p = { ...DEFAULT_PRIVACY, ...(m.privacy ?? {}) };
+  const isAdmin = viewerRole === 'admin';
+  return {
+    id: m.id,
+    name: m.name,
+    initials: m.initials,
+    avatarColor: m.avatarColor,
+    photo: p.showPhoto || isAdmin ? (m.photo ?? null) : null,
+    statusText: p.showStatus || isAdmin ? (m.statusText ?? '') : '',
+    socials: p.showSocials || isAdmin ? (m.socials ?? {}) : {},
+    skillLevel: m.skillLevel,
+    teamId: m.teamId,
+    role: m.role,
+    status: m.status,
+    lookingForPartner: m.lookingForPartner,
+    memberSince: m.memberSince,
+    email: p.showEmail || isAdmin ? m.email : null,
+    phone: p.showPhone || isAdmin ? m.phone : null,
+  };
 }
 
 class ApiError extends Error {
@@ -89,14 +168,63 @@ function fmtClock(h: number) {
 
 /* ---------------- Endpunkte ---------------- */
 
-function handle(path: string, method: string, params: URLSearchParams, body: Record<string, any>): unknown {
+async function handle(path: string, method: string, params: URLSearchParams, body: Record<string, any>): Promise<unknown> {
   const store = db();
 
   if (path === '/api/auth/login' && method === 'POST') {
-    const member = store.members.find((m) => m.id === body.memberId);
-    if (!member) err(401, 'Unbekanntes Mitglied');
+    let member: Member | undefined;
+    if (body.memberId) {
+      // Demo-Schnellanmeldung über Rollenauswahl
+      member = store.members.find((m) => m.id === body.memberId);
+      if (!member) err(401, 'Unbekanntes Mitglied');
+    } else {
+      // Anmeldung mit E-Mail & Passwort
+      const email = String(body.email ?? '').trim().toLowerCase();
+      member = store.members.find((m) => m.email.toLowerCase() === email);
+      if (!member) err(401, 'Kein Konto mit dieser E-Mail gefunden');
+      if (!member!.passwordHash) err(401, 'Für dieses Demo-Konto bitte die Schnellanmeldung nutzen');
+      const hash = await sha256(String(body.password ?? ''));
+      if (hash !== member!.passwordHash) err(401, 'Falsches Passwort');
+    }
+    if (member!.status === 'gesperrt') err(403, 'Dein Konto ist gesperrt');
     localStorage.setItem(SESSION_KEY, member!.id);
     audit(member!.name, 'Anmeldung');
+    return { user: sessionUser() };
+  }
+
+  if (path === '/api/auth/register' && method === 'POST') {
+    const name = String(body.name ?? '').trim();
+    const email = String(body.email ?? '').trim().toLowerCase();
+    const password = String(body.password ?? '');
+    if (name.length < 3) err(400, 'Bitte gib deinen vollständigen Namen an');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) err(400, 'Bitte gib eine gültige E-Mail-Adresse an');
+    if (password.length < 8) err(400, 'Passwort muss mindestens 8 Zeichen haben');
+    if (store.members.some((m) => m.email.toLowerCase() === email)) err(409, 'Diese E-Mail ist bereits registriert');
+
+    const member: Member = {
+      id: uid('m'),
+      name,
+      email,
+      phone: '',
+      avatarColor: AVATAR_COLORS[store.members.length % AVATAR_COLORS.length],
+      initials: initialsOf(name),
+      photo: null,
+      statusText: '',
+      socials: {},
+      privacy: { ...DEFAULT_PRIVACY },
+      passwordHash: await sha256(password),
+      skillLevel: 'LK 25',
+      teamId: null,
+      role: 'member',
+      status: 'aktiv',
+      memberSince: todayIso(),
+      favorites: [],
+      lookingForPartner: false,
+    };
+    store.members.push(member);
+    localStorage.setItem(SESSION_KEY, member.id);
+    audit(member.name, 'Registrierung');
+    notify(member.id, 'Willkommen im TC Grün-Weiß! 🎾', 'Vervollständige dein Profil unter Profil → Persönliche Daten.', 'news');
     return { user: sessionUser() };
   }
 
@@ -238,20 +366,130 @@ function handle(path: string, method: string, params: URLSearchParams, body: Rec
       members: store.members
         .filter((m) => m.name.toLowerCase().includes(q) || m.skillLevel.toLowerCase().includes(q))
         .map((m) => ({
-          id: m.id,
-          name: m.name,
-          initials: m.initials,
-          avatarColor: m.avatarColor,
-          skillLevel: m.skillLevel,
-          teamId: m.teamId,
-          role: m.role,
-          status: m.status,
-          lookingForPartner: m.lookingForPartner,
+          ...publicMember(m, user.role),
           isFavorite: me?.favorites.includes(m.id) ?? false,
-          // Kontaktdaten nur für Admins (DSGVO: Datensparsamkeit)
-          ...(user.role === 'admin' ? { email: m.email, phone: m.phone, memberSince: m.memberSince } : {}),
         })),
     };
+  }
+
+  if (path === '/api/profile' && method === 'GET') {
+    const me = store.members.find((m) => m.id === user.id)!;
+    const { passwordHash: _ph, ...safe } = me;
+    return {
+      profile: { ...safe, privacy: { ...DEFAULT_PRIVACY, ...(me.privacy ?? {}) } },
+      hasPassword: Boolean(me.passwordHash),
+    };
+  }
+
+  if (path === '/api/profile' && method === 'PATCH') {
+    const me = store.members.find((m) => m.id === user.id)!;
+    if (typeof body.name === 'string' && body.name.trim().length >= 3) {
+      me.name = body.name.trim();
+      me.initials = initialsOf(me.name);
+    }
+    if (typeof body.email === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.email.trim())) {
+      const email = body.email.trim().toLowerCase();
+      if (store.members.some((m) => m.id !== me.id && m.email.toLowerCase() === email)) err(409, 'E-Mail bereits vergeben');
+      me.email = email;
+    }
+    if (typeof body.phone === 'string') me.phone = body.phone.trim();
+    if (typeof body.skillLevel === 'string') me.skillLevel = body.skillLevel.trim();
+    if (typeof body.statusText === 'string') me.statusText = body.statusText.trim().slice(0, 90);
+    if (typeof body.lookingForPartner === 'boolean') me.lookingForPartner = body.lookingForPartner;
+    if (body.socials && typeof body.socials === 'object') {
+      me.socials = {
+        instagram: String(body.socials.instagram ?? '').replace(/^@/, '').trim() || undefined,
+        facebook: String(body.socials.facebook ?? '').trim() || undefined,
+        tiktok: String(body.socials.tiktok ?? '').replace(/^@/, '').trim() || undefined,
+        website: String(body.socials.website ?? '').replace(/^https?:\/\//, '').trim() || undefined,
+      };
+    }
+    if (body.privacy && typeof body.privacy === 'object') {
+      me.privacy = { ...DEFAULT_PRIVACY, ...(me.privacy ?? {}), ...body.privacy };
+    }
+    if (typeof body.photo === 'string' || body.photo === null) {
+      // Data-URL, clientseitig auf 256px verkleinert (Demo); Produktion: Supabase Storage
+      if (typeof body.photo === 'string' && body.photo.length > 400_000) err(413, 'Bild ist zu groß');
+      me.photo = body.photo;
+    }
+    if (typeof body.newPassword === 'string' && body.newPassword.length > 0) {
+      if (body.newPassword.length < 8) err(400, 'Neues Passwort muss mindestens 8 Zeichen haben');
+      if (me.passwordHash) {
+        const old = await sha256(String(body.currentPassword ?? ''));
+        if (old !== me.passwordHash) err(401, 'Aktuelles Passwort ist falsch');
+      }
+      me.passwordHash = await sha256(body.newPassword);
+    }
+    audit(me.name, 'Profil aktualisiert');
+    const { passwordHash: _ph2, ...safe } = me;
+    return { profile: safe, user: sessionUser() };
+  }
+
+  /* ---------- Spielpartner-Suche (offene Matches) ---------- */
+
+  if (path === '/api/matches' && method === 'GET') {
+    const today = todayIso();
+    store.matches = store.matches.filter((x) => x.date >= today);
+    return {
+      matches: store.matches
+        .slice()
+        .sort((a, b) => (a.date === b.date ? a.startHour - b.startHour : a.date.localeCompare(b.date)))
+        .map((x) => ({
+          ...x,
+          host: publicMember(store.members.find((m) => m.id === x.hostId) ?? store.members[0], user.role),
+          players: x.playerIds
+            .map((id) => store.members.find((m) => m.id === id))
+            .filter(Boolean)
+            .map((m) => publicMember(m as Member, user.role)),
+          joined: x.playerIds.includes(user.id),
+        })),
+    };
+  }
+
+  if (path === '/api/matches' && method === 'POST') {
+    const type = body.type === 'doppel' ? 'doppel' : 'einzel';
+    const match: OpenMatch = {
+      id: uid('om'),
+      hostId: user.id,
+      type,
+      date: body.date,
+      startHour: Number(body.startHour),
+      skillRange: String(body.skillRange ?? 'alle Spielstärken').slice(0, 40),
+      note: String(body.note ?? '').slice(0, 200),
+      playerIds: [user.id],
+      maxPlayers: type === 'doppel' ? 4 : 2,
+      createdAt: new Date().toISOString(),
+    };
+    store.matches.push(match);
+    audit(user.name, `Offenes Spiel erstellt (${type}, ${match.date})`);
+    return { match };
+  }
+
+  const matchJoin = path.match(/^\/api\/matches\/([^/]+)\/(join|leave)$/);
+  if (matchJoin && method === 'POST') {
+    let match = store.matches.find((x) => x.id === matchJoin[1]);
+    // Über WhatsApp-Link geteiltes Spiel auf diesem Gerät importieren
+    if (!match && body.imported) {
+      match = { ...(body.imported as OpenMatch), id: matchJoin[1] };
+      if (!store.members.some((m) => m.id === match!.hostId)) match!.hostId = user.id;
+      match!.playerIds = match!.playerIds.filter((id) => store.members.some((m) => m.id === id));
+      if (match!.playerIds.length === 0) match!.playerIds = [match!.hostId];
+      store.matches.push(match!);
+    }
+    if (!match) err(404, 'Spiel nicht gefunden');
+    if (matchJoin[2] === 'join') {
+      if (match!.playerIds.includes(user.id)) err(409, 'Du bist schon dabei');
+      if (match!.playerIds.length >= match!.maxPlayers) err(409, 'Das Spiel ist bereits voll');
+      match!.playerIds.push(user.id);
+      notify(match!.hostId, 'Mitspieler gefunden 🎾', `${user.name} spielt bei deinem ${match!.type === 'doppel' ? 'Doppel' : 'Einzel'} am ${match!.date} mit!`, 'booking');
+    } else {
+      if (match!.hostId === user.id) {
+        store.matches = store.matches.filter((x) => x.id !== match!.id);
+        return { ok: true, removed: true };
+      }
+      match!.playerIds = match!.playerIds.filter((id) => id !== user.id);
+    }
+    return { ok: true, players: match!.playerIds.length };
   }
 
   if (path === '/api/members/favorites' && method === 'POST') {
@@ -402,7 +640,7 @@ export async function apiFetch(
   await new Promise((r) => setTimeout(r, 60 + Math.random() * 120));
 
   try {
-    const data = handle(url.pathname, method, url.searchParams, body);
+    const data = await handle(url.pathname, method, url.searchParams, body);
     persist();
     return { ok: true, status: 200, json: async () => data };
   } catch (e) {

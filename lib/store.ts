@@ -5,6 +5,8 @@ import {
   Court,
   Member,
   NewsPost,
+  OpenMatch,
+  PrivacySettings,
   Team,
   Tournament,
   WaitlistEntry,
@@ -16,7 +18,7 @@ import {
  * In Produktion wird dieses Modul 1:1 durch Supabase/PostgreSQL ersetzt
  * (siehe db/schema.sql) – die API-Routen bleiben unverändert.
  */
-interface DB {
+export interface DB {
   members: Member[];
   courts: Court[];
   bookings: Booking[];
@@ -25,9 +27,18 @@ interface DB {
   tournaments: Tournament[];
   news: NewsPost[];
   notifications: AppNotification[];
+  matches: OpenMatch[];
   settings: ClubSettings;
   auditLog: { id: string; actor: string; action: string; at: string }[];
 }
+
+export const DEFAULT_PRIVACY: PrivacySettings = {
+  showEmail: false,
+  showPhone: false,
+  showSocials: true,
+  showStatus: true,
+  showPhoto: true,
+};
 
 function iso(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -47,15 +58,15 @@ export function uid(prefix = 'id'): string {
 
 function seed(): DB {
   const members: Member[] = [
-    { id: 'm1', name: 'Anna Becker', email: 'anna@tc-gw.de', phone: '+49 171 1234561', avatarColor: '#FF9500', initials: 'AB', skillLevel: 'LK 8', teamId: 't1', role: 'member', status: 'aktiv', memberSince: '2018-04-01', favorites: ['m3', 'm5'], lookingForPartner: true },
+    { id: 'm1', name: 'Anna Becker', email: 'anna@tc-gw.de', phone: '+49 171 1234561', avatarColor: '#FF9500', initials: 'AB', skillLevel: 'LK 8', teamId: 't1', role: 'member', status: 'aktiv', memberSince: '2018-04-01', favorites: ['m3', 'm5'], lookingForPartner: true, statusText: 'Suche Doppelpartnerin fürs Wochenende 🎾', socials: { instagram: 'anna.tennis' }, privacy: { ...DEFAULT_PRIVACY } },
     { id: 'm2', name: 'Max Schneider', email: 'max@tc-gw.de', phone: '+49 171 1234562', avatarColor: '#34C759', initials: 'MS', skillLevel: 'LK 12', teamId: 't2', role: 'member', status: 'aktiv', memberSince: '2020-06-15', favorites: [], lookingForPartner: false },
-    { id: 'm3', name: 'Lena Hoffmann', email: 'lena@tc-gw.de', phone: '+49 171 1234563', avatarColor: '#AF52DE', initials: 'LH', skillLevel: 'LK 6', teamId: 't1', role: 'member', status: 'aktiv', memberSince: '2016-03-20', favorites: ['m1'], lookingForPartner: true },
+    { id: 'm3', name: 'Lena Hoffmann', email: 'lena@tc-gw.de', phone: '+49 171 1234563', avatarColor: '#AF52DE', initials: 'LH', skillLevel: 'LK 6', teamId: 't1', role: 'member', status: 'aktiv', memberSince: '2016-03-20', favorites: ['m1'], lookingForPartner: true, statusText: 'Nach 18 Uhr fast immer spontan dabei ✌️', socials: { instagram: 'lena.hf', tiktok: 'lena.tennis' }, privacy: { ...DEFAULT_PRIVACY } },
     { id: 'm4', name: 'Tom Krüger', email: 'tom@tc-gw.de', phone: '+49 171 1234564', avatarColor: '#FF3B30', initials: 'TK', skillLevel: 'LK 15', teamId: 't2', role: 'member', status: 'aktiv', memberSince: '2021-09-01', favorites: [], lookingForPartner: true },
     { id: 'm5', name: 'Sarah Wagner', email: 'sarah@tc-gw.de', phone: '+49 171 1234565', avatarColor: '#5856D6', initials: 'SW', skillLevel: 'LK 9', teamId: 't3', role: 'member', status: 'aktiv', memberSince: '2019-05-12', favorites: ['m1', 'm3'], lookingForPartner: false },
-    { id: 'm6', name: 'Carlos Romero', email: 'carlos@tc-gw.de', phone: '+49 171 1234566', avatarColor: '#007AFF', initials: 'CR', skillLevel: 'LK 3', teamId: null, role: 'trainer', status: 'aktiv', memberSince: '2015-01-10', favorites: [], lookingForPartner: false },
+    { id: 'm6', name: 'Carlos Romero', email: 'carlos@tc-gw.de', phone: '+49 171 1234566', avatarColor: '#007AFF', initials: 'CR', skillLevel: 'LK 3', teamId: null, role: 'trainer', status: 'aktiv', memberSince: '2015-01-10', favorites: [], lookingForPartner: false, statusText: 'Einzeltraining: Mo–Fr vormittags buchbar', socials: { instagram: 'carlos.tennispro', website: 'carlos-tennis.de' }, privacy: { ...DEFAULT_PRIVACY, showEmail: true, showPhone: true } },
     { id: 'm7', name: 'Julia Brandt', email: 'julia@tc-gw.de', phone: '+49 171 1234567', avatarColor: '#FF2D55', initials: 'JB', skillLevel: 'LK 5', teamId: 't3', role: 'trainer', status: 'aktiv', memberSince: '2017-08-22', favorites: [], lookingForPartner: false },
     { id: 'm8', name: 'Peter Lindner', email: 'peter@tc-gw.de', phone: '+49 171 1234568', avatarColor: '#1D1D1F', initials: 'PL', skillLevel: 'LK 18', teamId: null, role: 'admin', status: 'aktiv', memberSince: '2010-02-01', favorites: [], lookingForPartner: false },
-    { id: 'm9', name: 'Nina Vogel', email: 'nina@tc-gw.de', phone: '+49 171 1234569', avatarColor: '#FF9500', initials: 'NV', skillLevel: 'LK 11', teamId: 't3', role: 'member', status: 'aktiv', memberSince: '2022-04-18', favorites: [], lookingForPartner: true },
+    { id: 'm9', name: 'Nina Vogel', email: 'nina@tc-gw.de', phone: '+49 171 1234569', avatarColor: '#FF9500', initials: 'NV', skillLevel: 'LK 11', teamId: 't3', role: 'member', status: 'aktiv', memberSince: '2022-04-18', favorites: [], lookingForPartner: true, statusText: 'Neu im Verein – wer zeigt mir die Anlage? 😊', privacy: { ...DEFAULT_PRIVACY } },
     { id: 'm10', name: 'David Albrecht', email: 'david@tc-gw.de', phone: '+49 171 1234570', avatarColor: '#34C759', initials: 'DA', skillLevel: 'LK 14', teamId: 't2', role: 'member', status: 'passiv', memberSince: '2014-11-05', favorites: [], lookingForPartner: false },
   ];
 
@@ -129,6 +140,11 @@ function seed(): DB {
     { id: 'no3', memberId: 'm1', title: 'Turnier-Info', body: 'Die Auslosung der Vereinsmeisterschaft erfolgt nach Meldeschluss.', type: 'tournament', date: new Date(Date.now() - 86400e3).toISOString(), read: true },
   ];
 
+  const matches: OpenMatch[] = [
+    { id: 'om1', hostId: 'm4', type: 'einzel', date: day(1), startHour: 18, skillRange: 'LK 12–18', note: 'Lockeres Einzel nach Feierabend, danach gern ein Getränk 🍻', playerIds: ['m4'], maxPlayers: 2, createdAt: new Date().toISOString() },
+    { id: 'om2', hostId: 'm5', type: 'doppel', date: day(2), startHour: 10, skillRange: 'LK 8–14', note: 'Mixed-Doppel am Vormittag, 2 Plätze frei!', playerIds: ['m5', 'm9'], maxPlayers: 4, createdAt: new Date().toISOString() },
+  ];
+
   return {
     members,
     courts,
@@ -138,6 +154,7 @@ function seed(): DB {
     tournaments,
     news,
     notifications,
+    matches,
     settings: { maxBookingHours: 2, maxActiveBookingsPerMember: 3, openingHour: 7, closingHour: 22, guestFeePerHour: 10 },
     auditLog: [],
   };

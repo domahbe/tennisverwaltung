@@ -73,15 +73,17 @@ export default function ProfilePage() {
       <div className="space-y-5 px-4 pt-[calc(env(safe-area-inset-top)+20px)]">
         <h1 className="text-[32px] font-bold tracking-tight">Profil</h1>
 
-        <div className="card flex items-center gap-4 p-5">
-          <Avatar initials={user.initials} color={user.avatarColor} size={64} />
-          <div>
+        <Link href="/profile/edit" className="card pressable flex items-center gap-4 p-5">
+          <Avatar initials={user.initials} color={user.avatarColor} photo={user.photo} size={64} />
+          <div className="flex-1">
             <p className="text-[22px] font-bold">{user.name}</p>
             <p className="text-secondary text-[14px]">
               {roleLabel} · {user.skillLevel}
             </p>
+            <p className="mt-0.5 text-[13px] font-medium text-[var(--primary)]">Persönliche Daten bearbeiten</p>
           </div>
-        </div>
+          <Chevron />
+        </Link>
 
         <div className="card overflow-hidden">
           <ListRow onClick={openNotifications}>
