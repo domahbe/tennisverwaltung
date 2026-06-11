@@ -56,7 +56,7 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
   event.waitUntil(
-    self.registration.showNotification(data.title || 'TC Grün-Weiß', {
+    self.registration.showNotification(data.title || 'TC Graben-Neudorf', {
       body: data.body || '',
       icon: BASE + 'icons/icon-192.png',
       badge: BASE + 'icons/icon-192.png',
