@@ -64,6 +64,22 @@ function fmtDate(iso: string) {
   return new Date(iso + 'T12:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
 }
 
+interface MemberBio {
+  memberSince: string;
+  gamesTotal: number;
+  upcoming: number;
+  recentGames: { id: string; date: string; startHour: number; type: string; title?: string; court: string; with: string[] }[];
+  teams: { id: string; name: string; league: string; position: number; captain: boolean }[];
+  tournaments: { id: string; name: string; status: string; placement: number | null }[];
+}
+
+const gameTypeLabel: Record<string, string> = {
+  einzel: 'Einzel',
+  doppel: 'Doppel',
+  training: 'Training',
+  punktspiel: 'Punktspiel',
+};
+
 function ClubInner() {
   const params = useSearchParams();
   const { toast } = useToast();
@@ -76,6 +92,27 @@ function ClubInner() {
   const [search, setSearch] = useState('');
   const [memberFilter, setMemberFilter] = useState('all');
   const [detail, setDetail] = useState<MemberView | null>(null);
+  const [teamDetail, setTeamDetail] = useState<TeamView | null>(null);
+  const [bio, setBio] = useState<MemberBio | null>(null);
+
+  // Spieler-Bio nachladen, sobald ein Profil geöffnet wird
+  useEffect(() => {
+    setBio(null);
+    if (!detail) return;
+    apiFetch(`/api/members/${detail.id}/bio`)
+      .then((r) => r.json())
+      .then((d) => setBio(d.bio ?? null))
+      .catch(() => {});
+  }, [detail]);
+
+  function openMemberById(id: string) {
+    const m = members?.find((x) => x.id === id);
+    if (m) {
+      haptic(8);
+      setTeamDetail(null);
+      setDetail(m);
+    }
+  }
 
   const load = useCallback(async () => {
     const [n, m, t, tr] = await Promise.all([
@@ -255,43 +292,36 @@ function ClubInner() {
           ) : (
             <div className="space-y-3">
               {teams.map((t) => (
-                <div key={t.id} className="card p-4">
-                  <div className="mb-2 flex items-center justify-between">
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    haptic(8);
+                    setTeamDetail(t);
+                  }}
+                  className="card pressable w-full p-4 text-left"
+                >
+                  <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[18px] font-bold">{t.name}</p>
                       <p className="text-secondary text-[13px]">
-                        {t.league} · Platz {t.position} · {t.matchesWon}–{t.matchesLost}
+                        {t.league} · Platz {t.position} · Bilanz {t.matchesWon}–{t.matchesLost}
                       </p>
                     </div>
                     <span className="rounded-full bg-primary-soft px-3 py-1 text-[13px] font-bold text-[var(--primary)]">
                       #{t.position}
                     </span>
                   </div>
-                  {t.nextMatch && (
-                    <div className="bg-fill mb-2 rounded-[12px] px-3 py-2 text-[13px]">
-                      <span className="font-semibold">Nächstes Spiel:</span> {t.nextMatch.home ? 'vs.' : '@'}{' '}
-                      {t.nextMatch.opponent} · {fmtDate(t.nextMatch.date)}
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="flex -space-x-2">
+                      {t.players.map((p) => (
+                        <div key={p.id} className="rounded-full ring-2 ring-[var(--card-opaque)]">
+                          <Avatar initials={p.initials} color={p.avatarColor} size={30} />
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  <div className="mb-2 flex -space-x-2">
-                    {t.players.map((p) => (
-                      <div key={p.id} className="rounded-full ring-2 ring-[var(--card-opaque)]">
-                        <Avatar initials={p.initials} color={p.avatarColor} size={32} />
-                      </div>
-                    ))}
-                    <span className="text-secondary self-center pl-3 text-[12px]">MF: {t.captain}</span>
+                    <span className="text-[13px] font-medium text-[var(--primary)]">Details ›</span>
                   </div>
-                  <div className="space-y-1">
-                    {t.results.map((r, i) => (
-                      <div key={i} className="flex items-center justify-between text-[13px]">
-                        <span className="text-secondary">
-                          {fmtDate(r.date)} · {r.opponent}
-                        </span>
-                        <span className={`font-bold ${r.won ? 'text-free' : 'text-busy'}`}>{r.score}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                </button>
               ))}
             </div>
           ))}
@@ -418,9 +448,150 @@ function ClubInner() {
               </div>
             )}
 
+            {/* Bio: Spielverläufe, Teams, Platzierungen */}
+            {bio && (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { v: bio.gamesTotal, l: 'Spiele' },
+                    { v: bio.upcoming, l: 'Anstehend' },
+                    { v: new Date(bio.memberSince + 'T12:00').getFullYear(), l: 'Mitglied seit' },
+                  ].map((s) => (
+                    <div key={s.l} className="bg-fill rounded-[14px] p-3 text-center">
+                      <p className="text-[20px] font-bold">{s.v}</p>
+                      <p className="text-secondary text-[11px]">{s.l}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {bio.teams.length > 0 && (
+                  <div>
+                    <p className="text-secondary mb-1.5 px-1 text-[13px] font-semibold uppercase tracking-wide">
+                      Mannschaften
+                    </p>
+                    {bio.teams.map((t) => (
+                      <div key={t.id} className="bg-fill mb-1.5 flex items-center justify-between rounded-[12px] px-3 py-2.5">
+                        <span className="text-[14px] font-medium">
+                          {t.name}
+                          {t.captain && ' · MF'}
+                        </span>
+                        <span className="text-secondary text-[13px]">
+                          {t.league} · Platz {t.position}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {bio.tournaments.length > 0 && (
+                  <div>
+                    <p className="text-secondary mb-1.5 px-1 text-[13px] font-semibold uppercase tracking-wide">Turniere</p>
+                    {bio.tournaments.map((t) => (
+                      <div key={t.id} className="bg-fill mb-1.5 flex items-center justify-between rounded-[12px] px-3 py-2.5">
+                        <span className="truncate pr-2 text-[14px] font-medium">{t.name}</span>
+                        <span className="text-secondary shrink-0 text-[13px]">
+                          {t.placement ? `🏅 ${t.placement}. Platz` : 'angemeldet'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {bio.recentGames.length > 0 && (
+                  <div>
+                    <p className="text-secondary mb-1.5 px-1 text-[13px] font-semibold uppercase tracking-wide">
+                      Letzte Spiele
+                    </p>
+                    {bio.recentGames.map((g) => (
+                      <div key={g.id} className="bg-fill mb-1.5 rounded-[12px] px-3 py-2.5">
+                        <p className="text-[14px] font-medium">
+                          {g.title ?? gameTypeLabel[g.type] ?? g.type}
+                          {g.with.length > 0 && <span className="text-secondary font-normal"> mit {g.with.join(', ')}</span>}
+                        </p>
+                        <p className="text-secondary text-[12px]">
+                          {fmtDate(g.date)} · {g.court}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
             <p className="text-secondary text-center text-[12px]">
               Es werden nur Daten angezeigt, die {detail.name.split(' ')[0]} freigegeben hat.
             </p>
+          </div>
+        )}
+      </Sheet>
+
+      {/* Team-Detail */}
+      <Sheet open={teamDetail !== null} onClose={() => setTeamDetail(null)} title={teamDetail?.name}>
+        {teamDetail && (
+          <div className="space-y-4 pb-2">
+            <div className="bg-fill flex items-center justify-between rounded-[14px] px-4 py-3">
+              <div>
+                <p className="text-[15px] font-semibold">{teamDetail.league}</p>
+                <p className="text-secondary text-[13px]">
+                  Tabellenplatz {teamDetail.position} · Bilanz {teamDetail.matchesWon}–{teamDetail.matchesLost}
+                </p>
+              </div>
+              <span className="text-3xl">🏆</span>
+            </div>
+
+            {teamDetail.nextMatch && (
+              <div className="rounded-[14px] bg-primary-soft px-4 py-3">
+                <p className="text-[13px] font-semibold text-[var(--primary)]">Nächstes Spiel</p>
+                <p className="text-[15px] font-medium">
+                  {teamDetail.nextMatch.home ? `${teamDetail.name} vs. ${teamDetail.nextMatch.opponent}` : `${teamDetail.nextMatch.opponent} vs. ${teamDetail.name}`}
+                </p>
+                <p className="text-secondary text-[13px]">
+                  {fmtDate(teamDetail.nextMatch.date)} · {teamDetail.nextMatch.home ? 'Heimspiel' : 'Auswärts'}
+                </p>
+              </div>
+            )}
+
+            <div>
+              <p className="text-secondary mb-1.5 px-1 text-[13px] font-semibold uppercase tracking-wide">
+                Mannschaft ({teamDetail.players.length})
+              </p>
+              <div className="card overflow-hidden">
+                {teamDetail.players.map((p, i) => (
+                  <button
+                    key={p.id}
+                    onClick={() => openMemberById(p.id)}
+                    className={`pressable flex w-full items-center gap-3 px-4 py-2.5 text-left ${
+                      i < teamDetail.players.length - 1 ? 'separator border-b' : ''
+                    }`}
+                  >
+                    <Avatar initials={p.initials} color={p.avatarColor} size={38} />
+                    <div className="flex-1">
+                      <p className="text-[15px] font-semibold">
+                        {p.name}
+                        {teamDetail.captain === p.name && <span className="text-secondary font-normal"> · Mannschaftsführer</span>}
+                      </p>
+                      <p className="text-secondary text-[13px]">{p.skillLevel}</p>
+                    </div>
+                    <span className="text-[13px] font-medium text-[var(--primary)]">Profil ›</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-secondary mb-1.5 px-1 text-[13px] font-semibold uppercase tracking-wide">Letzte Spiele</p>
+              {teamDetail.results.map((r, i) => (
+                <div key={i} className="bg-fill mb-1.5 flex items-center justify-between rounded-[12px] px-3 py-2.5">
+                  <div>
+                    <p className="text-[14px] font-medium">{r.opponent}</p>
+                    <p className="text-secondary text-[12px]">{fmtDate(r.date)}</p>
+                  </div>
+                  <span className={`text-[16px] font-bold ${r.won ? 'text-free' : 'text-busy'}`}>
+                    {r.score} {r.won ? '✓' : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </Sheet>

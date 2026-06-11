@@ -5,13 +5,13 @@ import { Providers } from './providers';
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 export const metadata: Metadata = {
-  title: 'TC Grün-Weiß',
-  description: 'Tennisverwaltung & Platzbuchung für den TC Grün-Weiß',
+  title: 'TC Graben-Neudorf',
+  description: 'Tennisverwaltung & Platzbuchung für den TC Graben-Neudorf',
   manifest: `${basePath}/manifest.webmanifest`,
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'TC Grün-Weiß',
+    title: 'TC Graben-Neudorf',
   },
   icons: {
     icon: `${basePath}/icons/icon.svg`,
@@ -52,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
       <body className="font-sans no-select">
+        <div className="bg-mesh" aria-hidden />
         <Providers>{children}</Providers>
         <script dangerouslySetInnerHTML={{ __html: swInit }} />
       </body>

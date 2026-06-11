@@ -13,9 +13,9 @@ export function bookingsFor(courtId: string, date: string): Booking[] {
     .sort((a, b) => a.startHour - b.startHour);
 }
 
-export function slotStatus(court: Court, date: string, hour: number, now = new Date()): SlotStatus {
+export function slotStatus(court: Court, date: string, hour: number, now = new Date(), playable?: boolean): SlotStatus {
   if (court.blocked) return 'blocked';
-  if (!court.indoor && !weatherFor(date).playable) return 'blocked';
+  if (!court.indoor && !(playable ?? weatherFor(date).playable)) return 'blocked';
   const todayIso = now.toISOString().slice(0, 10);
   const nowHour = now.getHours() + now.getMinutes() / 60;
   if (date < todayIso || (date === todayIso && hour + 1 <= nowHour)) return 'past';

@@ -58,25 +58,27 @@ export function uid(prefix = 'id'): string {
 
 function seed(): DB {
   const members: Member[] = [
-    { id: 'm1', name: 'Anna Becker', email: 'anna@tc-gw.de', phone: '+49 171 1234561', avatarColor: '#FF9500', initials: 'AB', skillLevel: 'LK 8', teamId: 't1', role: 'member', status: 'aktiv', memberSince: '2018-04-01', favorites: ['m3', 'm5'], lookingForPartner: true, statusText: 'Suche Doppelpartnerin fürs Wochenende 🎾', socials: { instagram: 'anna.tennis' }, privacy: { ...DEFAULT_PRIVACY } },
-    { id: 'm2', name: 'Max Schneider', email: 'max@tc-gw.de', phone: '+49 171 1234562', avatarColor: '#34C759', initials: 'MS', skillLevel: 'LK 12', teamId: 't2', role: 'member', status: 'aktiv', memberSince: '2020-06-15', favorites: [], lookingForPartner: false },
-    { id: 'm3', name: 'Lena Hoffmann', email: 'lena@tc-gw.de', phone: '+49 171 1234563', avatarColor: '#AF52DE', initials: 'LH', skillLevel: 'LK 6', teamId: 't1', role: 'member', status: 'aktiv', memberSince: '2016-03-20', favorites: ['m1'], lookingForPartner: true, statusText: 'Nach 18 Uhr fast immer spontan dabei ✌️', socials: { instagram: 'lena.hf', tiktok: 'lena.tennis' }, privacy: { ...DEFAULT_PRIVACY } },
-    { id: 'm4', name: 'Tom Krüger', email: 'tom@tc-gw.de', phone: '+49 171 1234564', avatarColor: '#FF3B30', initials: 'TK', skillLevel: 'LK 15', teamId: 't2', role: 'member', status: 'aktiv', memberSince: '2021-09-01', favorites: [], lookingForPartner: true },
-    { id: 'm5', name: 'Sarah Wagner', email: 'sarah@tc-gw.de', phone: '+49 171 1234565', avatarColor: '#5856D6', initials: 'SW', skillLevel: 'LK 9', teamId: 't3', role: 'member', status: 'aktiv', memberSince: '2019-05-12', favorites: ['m1', 'm3'], lookingForPartner: false },
-    { id: 'm6', name: 'Carlos Romero', email: 'carlos@tc-gw.de', phone: '+49 171 1234566', avatarColor: '#007AFF', initials: 'CR', skillLevel: 'LK 3', teamId: null, role: 'trainer', status: 'aktiv', memberSince: '2015-01-10', favorites: [], lookingForPartner: false, statusText: 'Einzeltraining: Mo–Fr vormittags buchbar', socials: { instagram: 'carlos.tennispro', website: 'carlos-tennis.de' }, privacy: { ...DEFAULT_PRIVACY, showEmail: true, showPhone: true } },
-    { id: 'm7', name: 'Julia Brandt', email: 'julia@tc-gw.de', phone: '+49 171 1234567', avatarColor: '#FF2D55', initials: 'JB', skillLevel: 'LK 5', teamId: 't3', role: 'trainer', status: 'aktiv', memberSince: '2017-08-22', favorites: [], lookingForPartner: false },
-    { id: 'm8', name: 'Peter Lindner', email: 'peter@tc-gw.de', phone: '+49 171 1234568', avatarColor: '#1D1D1F', initials: 'PL', skillLevel: 'LK 18', teamId: null, role: 'admin', status: 'aktiv', memberSince: '2010-02-01', favorites: [], lookingForPartner: false },
-    { id: 'm9', name: 'Nina Vogel', email: 'nina@tc-gw.de', phone: '+49 171 1234569', avatarColor: '#FF9500', initials: 'NV', skillLevel: 'LK 11', teamId: 't3', role: 'member', status: 'aktiv', memberSince: '2022-04-18', favorites: [], lookingForPartner: true, statusText: 'Neu im Verein – wer zeigt mir die Anlage? 😊', privacy: { ...DEFAULT_PRIVACY } },
-    { id: 'm10', name: 'David Albrecht', email: 'david@tc-gw.de', phone: '+49 171 1234570', avatarColor: '#34C759', initials: 'DA', skillLevel: 'LK 14', teamId: 't2', role: 'member', status: 'passiv', memberSince: '2014-11-05', favorites: [], lookingForPartner: false },
+    { id: 'm1', name: 'Anna Becker', email: 'anna@tcgn.de', phone: '+49 171 1234561', avatarColor: '#FF9500', initials: 'AB', skillLevel: 'LK 8', teamId: 't1', role: 'member', status: 'aktiv', memberSince: '2018-04-01', favorites: ['m3', 'm5'], lookingForPartner: true, statusText: 'Suche Doppelpartnerin fürs Wochenende 🎾', socials: { instagram: 'anna.tennis' }, privacy: { ...DEFAULT_PRIVACY } },
+    { id: 'm2', name: 'Max Schneider', email: 'max@tcgn.de', phone: '+49 171 1234562', avatarColor: '#34C759', initials: 'MS', skillLevel: 'LK 12', teamId: 't2', role: 'member', status: 'aktiv', memberSince: '2020-06-15', favorites: [], lookingForPartner: false },
+    { id: 'm3', name: 'Lena Hoffmann', email: 'lena@tcgn.de', phone: '+49 171 1234563', avatarColor: '#AF52DE', initials: 'LH', skillLevel: 'LK 6', teamId: 't1', role: 'member', status: 'aktiv', memberSince: '2016-03-20', favorites: ['m1'], lookingForPartner: true, statusText: 'Nach 18 Uhr fast immer spontan dabei ✌️', socials: { instagram: 'lena.hf', tiktok: 'lena.tennis' }, privacy: { ...DEFAULT_PRIVACY } },
+    { id: 'm4', name: 'Tom Krüger', email: 'tom@tcgn.de', phone: '+49 171 1234564', avatarColor: '#FF3B30', initials: 'TK', skillLevel: 'LK 15', teamId: 't2', role: 'member', status: 'aktiv', memberSince: '2021-09-01', favorites: [], lookingForPartner: true },
+    { id: 'm5', name: 'Sarah Wagner', email: 'sarah@tcgn.de', phone: '+49 171 1234565', avatarColor: '#5856D6', initials: 'SW', skillLevel: 'LK 9', teamId: 't3', role: 'member', status: 'aktiv', memberSince: '2019-05-12', favorites: ['m1', 'm3'], lookingForPartner: false },
+    { id: 'm6', name: 'Carlos Romero', email: 'carlos@tcgn.de', phone: '+49 171 1234566', avatarColor: '#007AFF', initials: 'CR', skillLevel: 'LK 3', teamId: null, role: 'trainer', status: 'aktiv', memberSince: '2015-01-10', favorites: [], lookingForPartner: false, statusText: 'Einzeltraining: Mo–Fr vormittags buchbar', socials: { instagram: 'carlos.tennispro', website: 'carlos-tennis.de' }, privacy: { ...DEFAULT_PRIVACY, showEmail: true, showPhone: true } },
+    { id: 'm7', name: 'Julia Brandt', email: 'julia@tcgn.de', phone: '+49 171 1234567', avatarColor: '#FF2D55', initials: 'JB', skillLevel: 'LK 5', teamId: 't3', role: 'trainer', status: 'aktiv', memberSince: '2017-08-22', favorites: [], lookingForPartner: false },
+    { id: 'm8', name: 'Peter Lindner', email: 'peter@tcgn.de', phone: '+49 171 1234568', avatarColor: '#1D1D1F', initials: 'PL', skillLevel: 'LK 18', teamId: null, role: 'admin', status: 'aktiv', memberSince: '2010-02-01', favorites: [], lookingForPartner: false },
+    { id: 'm9', name: 'Nina Vogel', email: 'nina@tcgn.de', phone: '+49 171 1234569', avatarColor: '#FF9500', initials: 'NV', skillLevel: 'LK 11', teamId: 't3', role: 'member', status: 'aktiv', memberSince: '2022-04-18', favorites: [], lookingForPartner: true, statusText: 'Neu im Verein – wer zeigt mir die Anlage? 😊', privacy: { ...DEFAULT_PRIVACY } },
+    { id: 'm10', name: 'David Albrecht', email: 'david@tcgn.de', phone: '+49 171 1234570', avatarColor: '#34C759', initials: 'DA', skillLevel: 'LK 14', teamId: 't2', role: 'member', status: 'passiv', memberSince: '2014-11-05', favorites: [], lookingForPartner: false },
   ];
 
+  // TC Graben-Neudorf, Tullastr. 11: 7 Außenplätze (Asche), keine Halle
   const courts: Court[] = [
     { id: 'c1', name: 'Platz 1', surface: 'Asche', indoor: false, floodlight: true, blocked: false },
     { id: 'c2', name: 'Platz 2', surface: 'Asche', indoor: false, floodlight: true, blocked: false },
     { id: 'c3', name: 'Platz 3', surface: 'Asche', indoor: false, floodlight: false, blocked: false },
     { id: 'c4', name: 'Platz 4', surface: 'Asche', indoor: false, floodlight: false, blocked: true, blockedReason: 'Frühjahrsinstandsetzung', maintenanceUntil: day(3) },
-    { id: 'c5', name: 'Halle 1', surface: 'Teppich', indoor: true, floodlight: false, blocked: false },
-    { id: 'c6', name: 'Halle 2', surface: 'Hartplatz', indoor: true, floodlight: false, blocked: false },
+    { id: 'c5', name: 'Platz 5', surface: 'Asche', indoor: false, floodlight: false, blocked: false },
+    { id: 'c6', name: 'Platz 6', surface: 'Asche', indoor: false, floodlight: false, blocked: false },
+    { id: 'c7', name: 'Platz 7', surface: 'Asche', indoor: false, floodlight: false, blocked: false },
   ];
 
   const today = day(0);

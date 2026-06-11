@@ -1,4 +1,4 @@
-# 🎾 TC Grün-Weiß – Tennisverwaltung & Platzbuchung
+# 🎾 TC Graben-Neudorf – Tennisverwaltung & Platzbuchung
 
 Moderne, Apple-inspirierte **Progressive Web App** für Tennisvereine: Platzbuchung in 3 Klicks, Mitglieder, Mannschaften, Turniere, Gastspieler, Wetter und Adminbereich – mobile-first für iPhone & Android.
 
@@ -32,7 +32,7 @@ Beim ersten Aufruf auf der Login-Seite eine Demo-Rolle wählen:
 
 ## Features
 
-- **Dashboard**: Begrüßung, Wetter mit Stundenverlauf & Warnungen, eigene Reservierungen (stornierbar), nächstes Punktspiel, Vereinsnews, Schnellbuchung
+- **Dashboard**: Begrüßung, Live-Wetter für Graben-Neudorf (Open-Meteo) mit Stundenverlauf & Warnungen, eigene Reservierungen (stornierbar), nächstes Punktspiel, Vereinsnews, Schnellbuchung
 - **Platzbuchung in ≤ 3 Klicks**: FAB → freier Slot (vorausgewählt) → „Jetzt reservieren“. Zeitraster mit Ampelfarben (grün/orange/rot), Mitspieler & Gastspieler (inkl. Gebühr), Regeln (max. Dauer, Buchungslimit, Sperrzeiten), **Warteliste** mit Benachrichtigung
 - **Kalender**: Tages-Timeline im Apple-Kalender-Stil (alle Plätze, Jetzt-Linie, Farbkodierung nach Buchungstyp) + Wochenansicht
 - **Verein**: Newsfeed, Mitgliederliste mit Suche/Favoriten/Spielpartner-Filter, Mannschaften (Tabelle, Ergebnisse, nächste Spiele), Turniere mit An-/Abmeldung

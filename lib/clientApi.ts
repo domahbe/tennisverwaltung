@@ -1,8 +1,9 @@
 'use client';
 
 import { bookingsFor, overlaps, slotStatus, validateBooking } from './booking';
-import { DEFAULT_PRIVACY, audit, db, notify, uid, weatherFor } from './store';
+import { DEFAULT_PRIVACY, audit, db, notify, uid } from './store';
 import { Booking, Member, OpenMatch, SessionUser } from './types';
+import { getWeather } from './weather';
 
 /**
  * Client-seitige API für den statischen Betrieb (GitHub Pages, PWA offline).
@@ -12,7 +13,8 @@ import { Booking, Member, OpenMatch, SessionUser } from './types';
  * echte fetch()-Aufrufe gegen Supabase/PostgreSQL ersetzt.
  */
 
-const DB_KEY = 'tcgw_db_v3';
+const DB_KEY = 'tcgw_db_v4';
+const LEGACY_DB_KEYS = ['tcgw_db_v3'];
 const SESSION_KEY = 'tcgw_session';
 
 let hydrated = false;
@@ -51,6 +53,18 @@ function hydrate() {
           return;
         }
         carryOverMembers = data.members.map(normalizeMember);
+      }
+    }
+    // Migration: Konten aus älteren Schema-Versionen übernehmen (Login bleibt erhalten)
+    if (!carryOverMembers) {
+      for (const key of LEGACY_DB_KEYS) {
+        const legacy = localStorage.getItem(key);
+        if (legacy) {
+          const { data } = JSON.parse(legacy);
+          if (data?.members?.length) carryOverMembers = data.members.map(normalizeMember);
+          localStorage.removeItem(key);
+          break;
+        }
       }
     }
   } catch {}
@@ -110,6 +124,14 @@ function initialsOf(name: string): string {
 }
 
 const AVATAR_COLORS = ['#FF9500', '#34C759', '#AF52DE', '#FF3B30', '#5856D6', '#007AFF', '#FF2D55', '#00C7BE'];
+
+/** Spielstärke aufs DTB-Format "LK n" (1–25) normalisieren. */
+function normalizeLk(input: unknown): string | null {
+  const m = String(input ?? '').match(/(\d{1,2}(?:[.,]\d)?)/);
+  if (!m) return null;
+  const n = Math.min(25, Math.max(1, Math.round(parseFloat(m[1].replace(',', '.')))));
+  return `LK ${n}`;
+}
 
 /** Öffentliches Mitglieder-Profil unter Beachtung der Privacy-Einstellungen. */
 function publicMember(m: Member, viewerRole: string) {
@@ -224,7 +246,7 @@ async function handle(path: string, method: string, params: URLSearchParams, bod
     store.members.push(member);
     localStorage.setItem(SESSION_KEY, member.id);
     audit(member.name, 'Registrierung');
-    notify(member.id, 'Willkommen im TC Grün-Weiß! 🎾', 'Vervollständige dein Profil unter Profil → Persönliche Daten.', 'news');
+    notify(member.id, 'Willkommen im TC Graben-Neudorf! 🎾', 'Vervollständige dein Profil unter Profil → Persönliche Daten.', 'news');
     return { user: sessionUser() };
   }
 
@@ -243,11 +265,19 @@ async function handle(path: string, method: string, params: URLSearchParams, bod
 
   if (path === '/api/courts' && method === 'GET') {
     const date = params.get('date') ?? todayIso();
-    const weather = weatherFor(date);
+    const weather = await getWeather(date);
+    // Abgelaufene Sperrungen automatisch aufheben
+    for (const c of store.courts) {
+      if (c.blocked && c.maintenanceUntil && c.maintenanceUntil < todayIso()) {
+        c.blocked = false;
+        c.blockedReason = undefined;
+        c.maintenanceUntil = undefined;
+      }
+    }
     const courts = store.courts.map((court) => {
       const hours: { hour: number; status: string }[] = [];
       for (let h = store.settings.openingHour; h < store.settings.closingHour; h++) {
-        hours.push({ hour: h, status: slotStatus(court, date, h) });
+        hours.push({ hour: h, status: slotStatus(court, date, h, new Date(), weather.playable) });
       }
       return {
         ...court,
@@ -298,32 +328,62 @@ async function handle(path: string, method: string, params: URLSearchParams, bod
     const check = validateBooking(user.id, courtId, date, startHour, durationHours);
     if (!check.ok) err(409, check.error!, { waitlistSuggested: check.waitlistSuggested ?? false });
 
-    const booking: Booking = {
-      id: uid('b'),
-      courtId,
-      date,
-      startHour,
-      durationHours,
-      memberId: user.id,
-      players: Array.from(new Set([user.id, ...players])),
-      guests: (guests as { name: string }[]).map((g) => ({
-        name: g.name,
-        fee: store.settings.guestFeePerHour * durationHours,
-        paid: false,
-      })),
-      type,
-      title,
-      createdAt: new Date().toISOString(),
-    };
-    store.bookings.push(booking);
-    audit(user.name, `Buchung ${booking.id}: ${courtId} am ${date} um ${fmtClock(startHour)}`);
+    // Wiederholungsserie (wöchentlich) nur für Trainer/Verwaltung
+    const repeatWeeks =
+      user.role === 'trainer' || user.role === 'admin' ? Math.min(26, Math.max(1, Number(body.repeatWeeks ?? 1))) : 1;
 
     const court = store.courts.find((c) => c.id === courtId);
-    notify(user.id, 'Buchung bestätigt ✅', `${court?.name}, ${date} um ${fmtClock(startHour)} Uhr`, 'booking');
-    for (const p of booking.players.filter((x) => x !== user.id)) {
+    const created: Booking[] = [];
+    const skipped: string[] = [];
+
+    for (let week = 0; week < repeatWeeks; week++) {
+      const d = new Date(date + 'T12:00');
+      d.setDate(d.getDate() + week * 7);
+      const occDate = d.toISOString().slice(0, 10);
+      if (week > 0) {
+        const occCheck = validateBooking(user.id, courtId, occDate, startHour, durationHours);
+        if (!occCheck.ok) {
+          skipped.push(occDate);
+          continue;
+        }
+      }
+      const booking: Booking = {
+        id: uid('b'),
+        courtId,
+        date: occDate,
+        startHour,
+        durationHours,
+        memberId: user.id,
+        players: Array.from(new Set([user.id, ...players])),
+        guests: (guests as { name: string }[]).map((g) => ({
+          name: g.name,
+          fee: store.settings.guestFeePerHour * durationHours,
+          paid: false,
+        })),
+        type,
+        title,
+        createdAt: new Date().toISOString(),
+      };
+      store.bookings.push(booking);
+      created.push(booking);
+    }
+
+    audit(
+      user.name,
+      `Buchung ${courtId} am ${date} um ${fmtClock(startHour)}${repeatWeeks > 1 ? ` (Serie: ${created.length}× wöchentlich)` : ''}`,
+    );
+    notify(
+      user.id,
+      'Buchung bestätigt ✅',
+      repeatWeeks > 1
+        ? `${court?.name}, ${created.length} Termine wöchentlich ab ${date}, ${fmtClock(startHour)} Uhr`
+        : `${court?.name}, ${date} um ${fmtClock(startHour)} Uhr`,
+      'booking',
+    );
+    for (const p of created[0].players.filter((x) => x !== user.id)) {
       notify(p, 'Neues Spiel 🎾', `${user.name} hat dich für ${court?.name} am ${date} um ${fmtClock(startHour)} Uhr eingetragen.`, 'booking');
     }
-    return { booking: enrichBooking(booking) };
+    return { booking: enrichBooking(created[0]), createdCount: created.length, skippedDates: skipped };
   }
 
   const bookingDelete = path.match(/^\/api\/bookings\/([^/]+)$/);
@@ -393,7 +453,11 @@ async function handle(path: string, method: string, params: URLSearchParams, bod
       me.email = email;
     }
     if (typeof body.phone === 'string') me.phone = body.phone.trim();
-    if (typeof body.skillLevel === 'string') me.skillLevel = body.skillLevel.trim();
+    if (body.skillLevel !== undefined) {
+      const lk = normalizeLk(body.skillLevel);
+      if (!lk) err(400, 'Spielstärke bitte als LK 1–25 angeben');
+      me.skillLevel = lk!;
+    }
     if (typeof body.statusText === 'string') me.statusText = body.statusText.trim().slice(0, 90);
     if (typeof body.lookingForPartner === 'boolean') me.lookingForPartner = body.lookingForPartner;
     if (body.socials && typeof body.socials === 'object') {
@@ -492,6 +556,55 @@ async function handle(path: string, method: string, params: URLSearchParams, bod
     return { ok: true, players: match!.playerIds.length };
   }
 
+  const memberBio = path.match(/^\/api\/members\/([^/]+)\/bio$/);
+  if (memberBio && method === 'GET') {
+    const m = store.members.find((x) => x.id === memberBio[1]);
+    if (!m) err(404, 'Mitglied nicht gefunden');
+    const today = todayIso();
+    const mine = (b: Booking) => b.memberId === m!.id || b.players.includes(m!.id);
+
+    const recentGames = store.bookings
+      .filter((b) => mine(b) && b.date <= today && b.type !== 'wartung' && b.type !== 'sperrung')
+      .sort((a, b) => b.date.localeCompare(a.date) || b.startHour - a.startHour)
+      .slice(0, 6)
+      .map((b) => ({
+        id: b.id,
+        date: b.date,
+        startHour: b.startHour,
+        type: b.type,
+        title: b.title,
+        court: store.courts.find((c) => c.id === b.courtId)?.name ?? '–',
+        with: b.players
+          .filter((id) => id !== m!.id)
+          .map((id) => store.members.find((x) => x.id === id)?.name.split(' ')[0])
+          .filter(Boolean),
+      }));
+
+    const teams = store.teams
+      .filter((t) => t.playerIds.includes(m!.id))
+      .map((t) => ({ id: t.id, name: t.name, league: t.league, position: t.position, captain: t.captainId === m!.id }));
+
+    const tournaments = store.tournaments
+      .filter((t) => t.participantIds.includes(m!.id))
+      .map((t) => ({
+        id: t.id,
+        name: t.name,
+        status: t.status,
+        placement: t.status === 'beendet' ? t.participantIds.indexOf(m!.id) + 1 : null,
+      }));
+
+    return {
+      bio: {
+        memberSince: m!.memberSince,
+        gamesTotal: store.bookings.filter(mine).length,
+        upcoming: store.bookings.filter((b) => mine(b) && b.date >= today).length,
+        recentGames,
+        teams,
+        tournaments,
+      },
+    };
+  }
+
   if (path === '/api/members/favorites' && method === 'POST') {
     const me = store.members.find((m) => m.id === user.id)!;
     if (me.favorites.includes(body.memberId)) me.favorites = me.favorites.filter((id) => id !== body.memberId);
@@ -553,7 +666,15 @@ async function handle(path: string, method: string, params: URLSearchParams, bod
   }
 
   if (path === '/api/weather') {
-    return { weather: weatherFor(params.get('date') ?? todayIso()) };
+    return { weather: await getWeather(params.get('date') ?? todayIso()) };
+  }
+
+  if (path === '/api/auth/verify' && method === 'POST') {
+    const me = store.members.find((m) => m.id === user.id)!;
+    if (!me.passwordHash) return { ok: true, noPassword: true };
+    const hash = await sha256(String(body.password ?? ''));
+    if (hash !== me.passwordHash) err(401, 'Aktuelles Passwort ist falsch');
+    return { ok: true };
   }
 
   if (path === '/api/notifications' && method === 'GET') {

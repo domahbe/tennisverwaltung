@@ -26,6 +26,7 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
 
   async function finishLogin(res: { ok: boolean; json: () => Promise<any> }) {
     const data = await res.json();
@@ -52,6 +53,10 @@ export default function LoginPage() {
 
   async function submitEmail(e: React.FormEvent) {
     e.preventDefault();
+    if (register && password !== password2) {
+      toast('Die Passwörter stimmen nicht überein', 'error');
+      return;
+    }
     haptic(12);
     setBusy('email');
     const path = register ? '/api/auth/register' : '/api/auth/login';
@@ -75,7 +80,7 @@ export default function LoginPage() {
         <div className="glass-shine mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[22px] bg-[var(--primary)] text-4xl">
           🎾
         </div>
-        <h1 className="text-[34px] font-bold tracking-tight">TC Grün-Weiß</h1>
+        <h1 className="text-[34px] font-bold tracking-tight">TC Graben-Neudorf</h1>
         <p className="text-secondary mt-1 text-[17px]">Platzbuchung & Vereinsleben</p>
       </motion.div>
 
@@ -166,6 +171,22 @@ export default function LoginPage() {
               minLength={register ? 8 : 1}
               className={inputCls}
             />
+            {register && (
+              <>
+                <input
+                  type="password"
+                  value={password2}
+                  onChange={(e) => setPassword2(e.target.value)}
+                  placeholder="Passwort wiederholen"
+                  autoComplete="new-password"
+                  required
+                  className={inputCls}
+                />
+                {password2.length > 0 && password !== password2 && (
+                  <p className="px-1 text-[12px] font-medium text-busy">Die Passwörter stimmen nicht überein</p>
+                )}
+              </>
+            )}
             <motion.button
               whileTap={{ scale: 0.97 }}
               type="submit"

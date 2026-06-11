@@ -81,4 +81,4 @@ Systemschrift-Stack (`-apple-system, SF Pro Display/Text, Inter, Roboto`). Skala
 ## 4. Responsive Verhalten
 
 - **Mobil (Priorität)**: einspaltig, max-w-lg zentriert, Bottom-Nav + FAB
-- **Tablet/Desktop**: gleiche zentrierte Spalte (App-Charakter bleibt erhalten), Kalender-Timeline nutzt die Breite für alle 6 Plätze
+- **Tablet/Desktop**: gleiche zentrierte Spalte (App-Charakter bleibt erhalten), Kalender-Timeline nutzt die Breite für alle 7 Plätze

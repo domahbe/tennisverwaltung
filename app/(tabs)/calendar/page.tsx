@@ -189,7 +189,7 @@ export default function CalendarPage() {
                               >
                                 <p className="truncate text-[10px] font-bold leading-tight">{b.title ?? st.label}</p>
                                 <p className="truncate text-[9px] opacity-80">
-                                  {`${Math.floor(b.startHour)}:${b.startHour % 1 ? '30' : '00'}`} · {b.durationHours} h
+                                  {`${Math.floor(b.startHour)}:${String(Math.round((b.startHour % 1) * 60)).padStart(2, '0')}`} · {b.durationHours} h
                                 </p>
                               </motion.div>
                             );

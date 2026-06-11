@@ -13,6 +13,7 @@ interface CourtView {
   indoor: boolean;
   blocked: boolean;
   blockedReason?: string;
+  maintenanceUntil?: string;
   freeCount: number;
 }
 
@@ -22,6 +23,7 @@ export default function AdminCourtsPage() {
   const [courts, setCourts] = useState<CourtView[] | null>(null);
   const [blocking, setBlocking] = useState<CourtView | null>(null);
   const [reason, setReason] = useState('Wartung');
+  const [until, setUntil] = useState(''); // optional: automatisches Freigeben
 
   const load = useCallback(async () => {
     const d = await apiFetch('/api/courts').then((r) => r.json());
@@ -39,7 +41,7 @@ export default function AdminCourtsPage() {
     const res = await apiFetch(`/api/courts/${court.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blocked, reason: blockReason }),
+      body: JSON.stringify({ blocked, reason: blockReason, until: until || undefined }),
     });
     if (res.ok) {
       toast(blocked ? `${court.name} gesperrt 🚧` : `${court.name} freigegeben ✅`);
@@ -77,6 +79,9 @@ export default function AdminCourtsPage() {
                 <p className="text-secondary text-[13px]">
                   {c.surface}
                   {c.blocked ? ` · ${c.blockedReason}` : ` · ${c.freeCount} Slots frei heute`}
+                  {c.blocked && c.maintenanceUntil
+                    ? ` · bis ${new Date(c.maintenanceUntil + 'T12:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })}`
+                    : ''}
                 </p>
                 <StatusDot status={c.blocked ? 'blocked' : 'free'} />
               </div>
@@ -91,6 +96,7 @@ export default function AdminCourtsPage() {
                 <button
                   onClick={() => {
                     setReason('Wartung');
+                    setUntil('');
                     setBlocking(c);
                   }}
                   className="pressable rounded-full bg-busy/15 px-4 py-2 text-[14px] font-semibold text-busy"
@@ -117,6 +123,20 @@ export default function AdminCourtsPage() {
               {r}
             </button>
           ))}
+          <p className="text-secondary pt-1 text-[13px] font-semibold uppercase tracking-wide">
+            Gesperrt bis <span className="font-normal normal-case">(optional)</span>
+          </p>
+          <input
+            type="date"
+            value={until}
+            min={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setUntil(e.target.value)}
+            className="bg-fill w-full rounded-[12px] px-4 py-3 text-[16px] outline-none"
+          />
+          <p className="text-secondary -mt-1 px-1 text-[12px]">
+            Mit Datum wird der Platz danach automatisch freigegeben – ohne bleibt er gesperrt, bis er manuell freigegeben
+            wird.
+          </p>
           <button
             onClick={() => blocking && setBlockedState(blocking, true, reason)}
             className="pressable mt-2 w-full rounded-[16px] bg-busy py-3.5 text-[17px] font-bold text-white"

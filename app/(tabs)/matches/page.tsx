@@ -30,7 +30,7 @@ function fmtDate(iso: string) {
 }
 
 function fmtTime(h: number) {
-  return `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}`;
+  return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 }
 
 /** Match als base64url für den WhatsApp-Link kodieren (Demo: Daten leben pro Gerät). */
@@ -56,7 +56,7 @@ function shareUrl(m: OpenMatch): string {
 function whatsappShare(m: OpenMatch, hostName: string) {
   haptic(10);
   const text =
-    `🎾 ${m.type === 'doppel' ? 'Doppel' : 'Einzel'} beim TC Grün-Weiß!\n` +
+    `🎾 ${m.type === 'doppel' ? 'Doppel' : 'Einzel'} beim TC Graben-Neudorf!\n` +
     `📅 ${fmtDate(m.date)} um ${fmtTime(m.startHour)} Uhr\n` +
     `🏆 ${m.skillRange}\n` +
     (m.note ? `💬 ${m.note}\n` : '') +
@@ -180,10 +180,18 @@ function MatchesInner() {
             <SkeletonCard lines={3} />
           </>
         ) : matches.length === 0 ? (
-          <div className="card text-secondary p-6 text-center text-[15px]">
-            Noch keine offenen Spiele.
-            <br />
-            Erstelle das erste! 🎾
+          <div className="card space-y-3 p-6 text-center">
+            <p className="text-3xl">🎾</p>
+            <p className="text-secondary text-[15px]">Gerade keine offenen Spiele – erstelle das erste!</p>
+            <button
+              onClick={() => {
+                haptic(10);
+                setCreateOpen(true);
+              }}
+              className="glass-shine pressable w-full rounded-[14px] bg-[var(--primary)] py-3 text-[15px] font-bold text-white"
+            >
+              Spiel erstellen & per WhatsApp teilen
+            </button>
           </div>
         ) : (
           matches.map((m, i) => {

@@ -9,7 +9,7 @@ const config: Config = {
         primary: {
           DEFAULT: '#007AFF',
           dark: '#0A84FF',
-          soft: 'rgba(0,122,255,0.12)',
+          soft: 'var(--primary-soft)',
         },
         ink: '#1D1D1F',
         paper: '#F5F5F7',

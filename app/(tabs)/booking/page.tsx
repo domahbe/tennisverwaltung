@@ -38,7 +38,7 @@ function isoDay(offset: number) {
 }
 
 function fmtTime(h: number) {
-  return `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}`;
+  return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 }
 
 const statusColor: Record<string, string> = {
@@ -63,13 +63,17 @@ function BookingPageInner() {
 
   // Buchungs-Sheet
   const [sheet, setSheet] = useState<{ courtId: string; hour: number } | null>(null);
+  const [quarter, setQuarter] = useState(0); // unterstündlicher Start: 0 / 15 / 30 / 45 Min
   const [duration, setDuration] = useState(1);
+  const [repeatWeeks, setRepeatWeeks] = useState(1); // Serie (nur Trainer/Verwaltung)
   const [players, setPlayers] = useState<string[]>([]);
   const [guestName, setGuestName] = useState('');
   const [guests, setGuests] = useState<string[]>([]);
-  const [type, setType] = useState<'einzel' | 'doppel'>('einzel');
+  const [type, setType] = useState<'einzel' | 'doppel' | 'training'>('einzel');
   const [submitting, setSubmitting] = useState(false);
   const [waitlistOffer, setWaitlistOffer] = useState<{ courtId: string; hour: number } | null>(null);
+
+  const canRepeat = user?.role === 'trainer' || user?.role === 'admin';
 
   const load = useCallback(async () => {
     const res = await apiFetch(`/api/courts?date=${date}`);
@@ -116,7 +120,9 @@ function BookingPageInner() {
     }
     if (status !== 'free' && status !== 'soon') return;
     haptic(10);
+    setQuarter(0);
     setDuration(1);
+    setRepeatWeeks(1);
     setPlayers([]);
     setGuests([]);
     setType('einzel');
@@ -127,24 +133,35 @@ function BookingPageInner() {
     if (!sheet) return;
     setSubmitting(true);
     haptic(15);
+    const startHour = sheet.hour + quarter;
     const res = await apiFetch('/api/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         courtId: sheet.courtId,
         date,
-        startHour: sheet.hour,
+        startHour,
         durationHours: duration,
         players,
         guests: guests.map((name) => ({ name })),
         type,
+        title: type === 'training' ? `Training – ${user?.name?.split(' ')[0]}` : undefined,
+        repeatWeeks: canRepeat ? repeatWeeks : 1,
       }),
     });
     const data = await res.json();
     setSubmitting(false);
     if (res.ok) {
       haptic([10, 30, 60]);
-      toast(`${sheetCourt?.name} gebucht – ${fmtTime(sheet.hour)} Uhr ✔`);
+      if (data.createdCount > 1) {
+        toast(
+          `${sheetCourt?.name}: ${data.createdCount} Termine wöchentlich gebucht${
+            data.skippedDates?.length ? ` (${data.skippedDates.length} belegt übersprungen)` : ''
+          } ✔`,
+        );
+      } else {
+        toast(`${sheetCourt?.name} gebucht – ${fmtTime(startHour)} Uhr ✔`);
+      }
       setSheet(null);
       load();
     } else {
@@ -298,16 +315,26 @@ function BookingPageInner() {
                   {new Date(date + 'T12:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </p>
                 <p className="text-secondary text-[13px]">
-                  {fmtTime(sheet.hour)} – {fmtTime(sheet.hour + duration)} Uhr · {sheetCourt.surface}
+                  {fmtTime(sheet.hour + quarter)} – {fmtTime(sheet.hour + quarter + duration)} Uhr · {sheetCourt.surface}
                 </p>
               </div>
               <span className="text-2xl">🎾</span>
             </div>
 
             <div>
+              <p className="text-secondary mb-1.5 text-[13px] font-semibold uppercase tracking-wide">Startzeit</p>
+              <Segmented
+                options={[0, 0.25, 0.5, 0.75].map((q) => ({ value: String(q), label: fmtTime(sheet.hour + q) }))}
+                value={String(quarter)}
+                onChange={(v) => setQuarter(Number(v))}
+              />
+            </div>
+
+            <div>
               <p className="text-secondary mb-1.5 text-[13px] font-semibold uppercase tracking-wide">Dauer</p>
               <Segmented
                 options={[
+                  { value: '0.5', label: '30 Min' },
                   { value: '1', label: '1 Std' },
                   { value: '1.5', label: '1,5 Std' },
                   { value: '2', label: '2 Std' },
@@ -323,11 +350,34 @@ function BookingPageInner() {
                 options={[
                   { value: 'einzel', label: 'Einzel' },
                   { value: 'doppel', label: 'Doppel' },
+                  ...(canRepeat ? [{ value: 'training', label: 'Training' }] : []),
                 ]}
                 value={type}
-                onChange={(v) => setType(v as 'einzel' | 'doppel')}
+                onChange={(v) => setType(v as 'einzel' | 'doppel' | 'training')}
               />
             </div>
+
+            {canRepeat && (
+              <div>
+                <p className="text-secondary mb-1.5 text-[13px] font-semibold uppercase tracking-wide">
+                  Wiederholen (wöchentlich)
+                </p>
+                <Segmented
+                  options={[
+                    { value: '1', label: 'Einmalig' },
+                    { value: '4', label: '4 Wochen' },
+                    { value: '8', label: '8 Wochen' },
+                    { value: '12', label: '12 Wochen' },
+                  ]}
+                  value={String(repeatWeeks)}
+                  onChange={(v) => setRepeatWeeks(Number(v))}
+                />
+                <p className="text-secondary mt-1 px-1 text-[11px]">
+                  Für Trainer & Verwaltung: bereits belegte Wochen werden automatisch übersprungen, das Buchungslimit gilt
+                  nicht.
+                </p>
+              </div>
+            )}
 
             <div>
               <p className="text-secondary mb-1.5 text-[13px] font-semibold uppercase tracking-wide">

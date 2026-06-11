@@ -13,6 +13,8 @@
   --glass-border: rgba(255, 255, 255, 0.65);
   --glass-highlight: rgba(255, 255, 255, 0.75);
   --primary: #007aff;
+  --primary-soft: rgba(0, 122, 255, 0.12);
+  --segment: #ffffff;
   --fill: rgba(120, 120, 128, 0.12);
 }
 
@@ -27,12 +29,17 @@
   --glass-border: rgba(255, 255, 255, 0.12);
   --glass-highlight: rgba(255, 255, 255, 0.1);
   --primary: #0a84ff;
+  --primary-soft: rgba(10, 132, 255, 0.32);
+  --segment: #636366;
   --fill: rgba(120, 120, 128, 0.24);
 }
 
 html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  /* gleiche Farbe wie Body, damit Overscroll/Notch-Bereiche nicht "abgehackt" wirken */
+  background: var(--bg);
+  min-height: 100%;
 }
 
 body {
@@ -44,20 +51,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Liquid Glass: weiche Farbflächen, die durch die Glas-Layer schimmern */
-body::before {
-  content: '';
+/* Liquid Glass: weiche Farbflächen über den GESAMTEN Screen (inkl. Notch).
+   Eigenes fixes Element statt body::before – auf iOS scrollen/clippen
+   Pseudo-Elemente auf body sonst sichtbar mit. 100lvh deckt auch die
+   Bereiche hinter Notch und Home-Indicator ab (viewport-fit=cover). */
+.bg-mesh {
   position: fixed;
-  inset: -10%;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100lvh;
   z-index: -1;
   pointer-events: none;
+  transform: translateZ(0);
   background:
     radial-gradient(42% 34% at 12% 8%, rgba(0, 122, 255, 0.2), transparent 70%),
     radial-gradient(38% 30% at 88% 22%, rgba(52, 199, 89, 0.16), transparent 70%),
     radial-gradient(46% 38% at 50% 95%, rgba(175, 82, 222, 0.14), transparent 70%),
     radial-gradient(30% 24% at 70% 60%, rgba(255, 149, 0, 0.08), transparent 70%);
 }
-.dark body::before {
+.dark .bg-mesh {
   background:
     radial-gradient(42% 34% at 12% 8%, rgba(10, 132, 255, 0.22), transparent 70%),
     radial-gradient(38% 30% at 88% 22%, rgba(48, 209, 88, 0.12), transparent 70%),

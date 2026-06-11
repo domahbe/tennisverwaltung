@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { apiFetch } from '@/lib/clientApi';
-import { Avatar, SkeletonCard } from '@/components/ui';
+import { PhotoCropper } from '@/components/PhotoCropper';
+import { Avatar, SkeletonCard, Toggle } from '@/components/ui';
 import { Member, PrivacySettings, SocialLinks } from '@/lib/types';
 import { haptic, useToast, useUser } from '../../../providers';
 
@@ -20,51 +21,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        haptic(8);
-        onChange();
-      }}
-      className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-free' : 'bg-fill'}`}
-    >
-      <span
-        className={`absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow transition-transform duration-200 ${
-          on ? 'translate-x-[22px]' : 'translate-x-[2px]'
-        }`}
-      />
-    </button>
-  );
-}
-
-/** Bild clientseitig auf 256×256 (Cover-Crop) verkleinern → Data-URL */
-async function resizeImage(file: File): Promise<string> {
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const i = new Image();
-    i.onload = () => resolve(i);
-    i.onerror = reject;
-    i.src = dataUrl;
-  });
-  const S = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = S;
-  canvas.height = S;
-  const ctx = canvas.getContext('2d')!;
-  const scale = Math.max(S / img.width, S / img.height);
-  const w = img.width * scale;
-  const h = img.height * scale;
-  ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
-  return canvas.toDataURL('image/jpeg', 0.82);
-}
-
 export default function ProfileEditPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -73,10 +29,16 @@ export default function ProfileEditPage() {
   const [profile, setProfile] = useState<Member | null>(null);
   const [socials, setSocials] = useState<SocialLinks>({});
   const [privacy, setPrivacy] = useState<PrivacySettings | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+
+  // Passwort-Bereich: bewusst eingeklappt; bei vorhandenem Passwort erst
+  // Verifizierung des aktuellen Passworts, dann neues festlegen
+  const [hasPassword, setHasPassword] = useState(false);
+  const [pwStep, setPwStep] = useState<'hidden' | 'verify' | 'set'>('hidden');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [hasPassword, setHasPassword] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [newPassword2, setNewPassword2] = useState('');
 
   useEffect(() => {
     apiFetch('/api/profile')
@@ -89,19 +51,26 @@ export default function ProfileEditPage() {
       });
   }, []);
 
-  async function pickPhoto(file: File | undefined) {
-    if (!file || !profile) return;
-    try {
-      const photo = await resizeImage(file);
-      setProfile({ ...profile, photo });
-      haptic(10);
-    } catch {
-      toast('Bild konnte nicht geladen werden', 'error');
+  async function verifyCurrentPassword() {
+    haptic(10);
+    const res = await apiFetch('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: currentPassword }),
+    });
+    if (res.ok) {
+      setPwStep('set');
+    } else {
+      toast('Aktuelles Passwort ist falsch', 'error');
     }
   }
 
   async function save() {
     if (!profile || !privacy) return;
+    if (newPassword && newPassword !== newPassword2) {
+      toast('Die neuen Passwörter stimmen nicht überein', 'error');
+      return;
+    }
     haptic(12);
     setSaving(true);
     const res = await apiFetch('/api/profile', {
@@ -123,8 +92,8 @@ export default function ProfileEditPage() {
     const data = await res.json();
     setSaving(false);
     if (res.ok) {
-      await refresh();
       toast('Profil gespeichert ✅');
+      await refresh();
       router.back();
     } else {
       toast(data.error ?? 'Speichern fehlgeschlagen', 'error');
@@ -182,7 +151,10 @@ export default function ProfileEditPage() {
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={(e) => pickPhoto(e.target.files?.[0])}
+          onChange={(e) => {
+            setCropFile(e.target.files?.[0] ?? null);
+            e.target.value = '';
+          }}
         />
       </div>
 
@@ -208,13 +180,23 @@ export default function ProfileEditPage() {
             className={inputCls}
           />
         </Field>
-        <Field label="Spielstärke (LK)">
-          <input
-            value={profile.skillLevel}
-            onChange={(e) => setProfile({ ...profile, skillLevel: e.target.value })}
-            placeholder="z. B. LK 12"
-            className={inputCls}
-          />
+        <Field label="Spielstärke (LK 1–25)">
+          <div className="bg-fill flex items-center rounded-[12px] px-4">
+            <span className="text-secondary pr-2 text-[16px] font-semibold">LK</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={25}
+              value={profile.skillLevel.replace(/\D/g, '')}
+              onChange={(e) => {
+                const n = e.target.value.replace(/\D/g, '').slice(0, 2);
+                setProfile({ ...profile, skillLevel: n ? `LK ${Math.min(25, Math.max(1, Number(n)))}` : 'LK ' });
+              }}
+              className="w-full bg-transparent py-3 text-[16px] outline-none"
+            />
+          </div>
+          <p className="text-secondary mt-1 px-1 text-[12px]">DTB-Leistungsklasse: 1 (beste) bis 25</p>
         </Field>
       </div>
 
@@ -299,31 +281,78 @@ export default function ProfileEditPage() {
         ))}
       </div>
 
-      {/* Passwort */}
-      <div className="card space-y-3 p-4">
-        <p className="text-secondary px-1 text-[13px] font-semibold uppercase tracking-wide">Passwort ändern</p>
-        {hasPassword && (
-          <input
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            placeholder="Aktuelles Passwort"
-            autoComplete="current-password"
-            className={inputCls}
-          />
-        )}
-        <input
-          type="password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="Neues Passwort (min. 8 Zeichen)"
-          autoComplete="new-password"
-          className={inputCls}
-        />
-        <p className="text-secondary px-1 text-[12px]">
-          Leer lassen, wenn du dein Passwort nicht ändern möchtest. Demo-Konten ohne Passwort können hier eines setzen.
-        </p>
-      </div>
+      {/* Passwort – dezent versteckt hinter einem Textlink */}
+      {pwStep === 'hidden' ? (
+        <button
+          onClick={() => {
+            haptic(8);
+            setPwStep(hasPassword ? 'verify' : 'set');
+          }}
+          className="text-secondary w-full py-1 text-center text-[14px] font-medium"
+        >
+          Passwort ändern…
+        </button>
+      ) : (
+        <div className="card space-y-3 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-secondary px-1 text-[13px] font-semibold uppercase tracking-wide">Passwort ändern</p>
+            <button
+              onClick={() => {
+                setPwStep('hidden');
+                setCurrentPassword('');
+                setNewPassword('');
+                setNewPassword2('');
+              }}
+              className="text-secondary text-[13px] font-medium"
+            >
+              Abbrechen
+            </button>
+          </div>
+          {pwStep === 'verify' ? (
+            <>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Aktuelles Passwort"
+                autoComplete="current-password"
+                className={inputCls}
+              />
+              <button
+                onClick={verifyCurrentPassword}
+                disabled={!currentPassword}
+                className="pressable w-full rounded-[14px] bg-fill py-2.5 text-[15px] font-bold text-[var(--primary)] disabled:opacity-50"
+              >
+                Bestätigen
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Neues Passwort (min. 8 Zeichen)"
+                autoComplete="new-password"
+                minLength={8}
+                className={inputCls}
+              />
+              <input
+                type="password"
+                value={newPassword2}
+                onChange={(e) => setNewPassword2(e.target.value)}
+                placeholder="Neues Passwort wiederholen"
+                autoComplete="new-password"
+                className={inputCls}
+              />
+              {newPassword2.length > 0 && newPassword !== newPassword2 && (
+                <p className="px-1 text-[12px] font-medium text-busy">Die Passwörter stimmen nicht überein</p>
+              )}
+              <p className="text-secondary px-1 text-[12px]">Wird beim Speichern übernommen.</p>
+            </>
+          )}
+        </div>
+      )}
 
       <motion.button
         whileTap={{ scale: 0.97 }}
@@ -333,6 +362,17 @@ export default function ProfileEditPage() {
       >
         {saving ? 'Wird gespeichert…' : 'Speichern'}
       </motion.button>
+
+      <PhotoCropper
+        file={cropFile}
+        onCancel={() => setCropFile(null)}
+        onDone={(photo) => {
+          setProfile((p) => (p ? { ...p, photo } : p));
+          setCropFile(null);
+          haptic(10);
+          toast('Foto zugeschnitten – beim Speichern wird es übernommen');
+        }}
+      />
     </div>
   );
 }

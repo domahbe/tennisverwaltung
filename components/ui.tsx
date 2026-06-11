@@ -23,7 +23,7 @@ export function Segmented({
     <div className="bg-fill relative flex rounded-[10px] p-0.5">
       <motion.span
         aria-hidden
-        className="absolute bottom-0.5 top-0.5 rounded-[8px] bg-[var(--card-opaque)] shadow-sm"
+        className="absolute bottom-0.5 left-0.5 top-0.5 rounded-[8px] bg-[var(--segment)] shadow"
         style={{ width: `calc((100% - 4px) / ${options.length})` }}
         initial={false}
         animate={{ x: `${index * 100}%` }}
@@ -101,6 +101,33 @@ export function Sheet({
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+/* ---------- iOS-Schalter ----------
+   Thumb explizit mit left-[2px] verankert: position:absolute ohne left
+   nimmt in zentrierten Containern (z. B. <button>) die statische Mitte
+   als Ausgangspunkt – der Schalter wirkte dadurch nach rechts verschoben. */
+export function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => {
+        haptic(8);
+        onChange();
+      }}
+      className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200 ${
+        on ? 'bg-free' : 'bg-fill'
+      }`}
+    >
+      <span
+        className={`absolute left-[2px] top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow transition-transform duration-200 ${
+          on ? 'translate-x-[20px]' : 'translate-x-0'
+        }`}
+      />
+    </button>
   );
 }
 

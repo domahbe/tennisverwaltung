@@ -22,7 +22,7 @@ interface EnrichedBooking {
 }
 
 function fmtTime(h: number) {
-  return `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}`;
+  return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 }
 
 function fmtDate(iso: string) {

@@ -172,7 +172,7 @@ export default function ProfilePage() {
           Abmelden
         </button>
 
-        <p className="text-secondary pb-4 text-center text-[12px]">TC Grün-Weiß App · Version 1.0.0 · PWA</p>
+        <p className="text-secondary pb-4 text-center text-[12px]">TC Graben-Neudorf App · Version 1.0.0 · PWA</p>
       </div>
 
       <Sheet open={showNotifications} onClose={() => setShowNotifications(false)} title="Mitteilungen">
